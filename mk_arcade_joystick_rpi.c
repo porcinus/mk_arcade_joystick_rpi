@@ -38,8 +38,8 @@
 #include <asm/io.h>
 
 
-MODULE_AUTHOR("Matthieu Proucelle");
-MODULE_DESCRIPTION("GPIO and MCP23017 Arcade Joystick Driver");
+MODULE_AUTHOR("Matthieu Proucelle (edited for Freeplaytech by Ed Mandy)");
+MODULE_DESCRIPTION("Freeplay GPIO Arcade Joystick Driver");
 MODULE_LICENSE("GPL");
 
 #define MK_MAX_DEVICES		2
@@ -92,8 +92,13 @@ MODULE_PARM_DESC(gpio, "Numbers of custom GPIO for Arcade Joystick 1");
 static struct gpio_config gpio_cfg2 __initdata;
 
 // hotkey
-unsigned int hk_state_prev = 0xFF;
-unsigned int hk_data_prev = 0;
+unsigned char hk_state_prev = 0xFF;
+//unsigned char hk_data_prev = 0;
+
+unsigned char hk_pre_mode = 0;
+int hotkey_combo_btn = -1;
+
+unsigned char data[MK_MAX_BUTTONS];     //so we always keep the state of data
 
 module_param_array_named(gpio2, gpio_cfg2.mk_arcade_gpio_maps_custom, int, &(gpio_cfg2.nargs), 0);
 MODULE_PARM_DESC(gpio2, "Numbers of custom GPIO for Arcade Joystick 2");
@@ -207,33 +212,62 @@ static void mk_gpio_read_packet(struct mk_pad * pad, unsigned char *data) {
                     else hk_state = 0;
                 }
                 
-                data[i] = hk_data_prev;
-                
                 if(hk_state != hk_state_prev)
                 {
                     //the hotkey changed
-                    if(hk_state == 1)
-                    {
-                        data[i] = !hk_data_prev;
-                        hk_data_prev = data[i];
-                    }
                     hk_state_prev = hk_state;
+                    
+                    //if it changed and it's now a 1, we enter pre-hotkey mode
+                    if(hk_state)
+                    {
+                        if(hk_pre_mode)
+                            hk_pre_mode = 0;
+                        else
+                            hk_pre_mode = 1;
+                        
+                        hotkey_combo_btn = -1;
+                    }
                 }
             }
             else
             {
                 //all other (non-hotkey) buttons just report their state to data[i]
+                //except when we are in hk_state
+                unsigned char prev_data = data[i];
                 if(pad->gpio_maps[i] < 0)   // invert this signal
                 {
                     int read = GPIO_READ(pad->gpio_maps[i] * -1);
-                    if (read == 0) data[i] = 0;
-                    else data[i] = 1;
+                    if (read == 0)
+                        data[i] = 0;
+                    else
+                        data[i] = 1;
                 }
                 else
                 {
                     int read = GPIO_READ(pad->gpio_maps[i]);
-                    if (read == 0) data[i] = 1;
-                    else data[i] = 0;
+                    if (read == 0)
+                        data[i] = 1;
+                    else
+                        data[i] = 0;
+                }
+                
+                if(prev_data != data[i])
+                {
+                    //the state of this button changed
+                    if(hk_pre_mode)
+                    {
+                        if(data[i]) //the button was just pressed
+                        {
+                            data[12] = 1;   //turn on the hotkey
+                            hotkey_combo_btn = i;
+                        }
+                        else if(i == hotkey_combo_btn)   //the button was just released
+                        {
+                            data[12] = 0;   //turn off the hotkey
+                            hk_pre_mode = 0;
+                            hotkey_combo_btn = -1;
+                        }
+                    }
                 }
             }
         }else data[i] = 0;
@@ -254,13 +288,13 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data) {
 
 static void mk_process_packet(struct mk *mk) {
     
-    unsigned char data[MK_MAX_BUTTONS];
+    
     struct mk_pad *pad;
     int i;
     
     for (i = 0; i < mk->total_pads; i++) {
         pad = &mk->pads[i];
-        mk_gpio_read_packet(pad, data);
+        mk_gpio_read_packet(pad, data);     //data is now global
         mk_input_report(pad, data);
     }
     
@@ -306,6 +340,7 @@ static int __init mk_setup_pad(struct mk *mk, int idx, int pad_type_arg) {
     struct input_dev *input_dev;
     int i, pad_type;
     int err;
+    pr_err("Freeplay Button Driver\n");
     pr_err("pad type : %d\n",pad_type_arg);
     
     pad_type = pad_type_arg;

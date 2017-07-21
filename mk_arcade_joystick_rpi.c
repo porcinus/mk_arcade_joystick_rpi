@@ -221,10 +221,21 @@ static void mk_gpio_read_packet(struct mk_pad * pad, unsigned char *data) {
                     if(hk_state)
                     {
                         if(hk_pre_mode)
-                            hk_pre_mode = 0;
+                        {
+                            //the PWR btn itself is the hotkey
+                            data[12] = 1;   //turn on the hotkey
+                            hotkey_combo_btn = i;
+                        }
                         else
+                        {
                             hk_pre_mode = 1;
-                        
+                            hotkey_combo_btn = -1;
+                        }
+                    }
+                    else if(hotkey_combo_btn == i)  //the hotkey was just released, and the PWR btn itself is the hotkey
+                    {
+                        data[12] = 0;   //turn off the hotkey
+                        hk_pre_mode = 0;
                         hotkey_combo_btn = -1;
                     }
                 }

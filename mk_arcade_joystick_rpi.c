@@ -317,8 +317,11 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data) {
     int j;
     input_report_abs(dev, ABS_Y, !data[0]-!data[1]);
     input_report_abs(dev, ABS_X, !data[2]-!data[3]);
-    for (j = 4; j < MK_MAX_BUTTONS; j++) {
-        input_report_key(dev, mk_arcade_gpio_btn[j - 4], data[j]);
+    
+    for (j = 4; j < MK_MAX_BUTTONS; j++)
+    {
+        if(pad->gpio_maps[j] != -1)
+            input_report_key(dev, mk_arcade_gpio_btn[j - 4], data[j]);
     }
     input_sync(dev);
 }
@@ -440,11 +443,6 @@ static int __init mk_setup_pad(struct mk *mk, int idx, int pad_type_arg) {
     
     input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
     
-    for (i = 0; i < 2; i++)
-        input_set_abs_params(input_dev, ABS_X + i, -1, 1, 0, 0);
-    for (i = 0; i < MK_MAX_BUTTONS - 4; i++)
-        __set_bit(mk_arcade_gpio_btn[i], input_dev->keybit);
-    
     mk->total_pads++;
     
     // asign gpio pins
@@ -464,6 +462,14 @@ static int __init mk_setup_pad(struct mk *mk, int idx, int pad_type_arg) {
         case MK_ARCADE_GPIO_CUSTOM2:
             memcpy(pad->gpio_maps, gpio_cfg2.mk_arcade_gpio_maps_custom, MK_MAX_BUTTONS *sizeof(int));
             break;
+    }
+    
+    for (i = 0; i < 2; i++)
+        input_set_abs_params(input_dev, ABS_X + i, -1, 1, 0, 0);
+    for (i = 0; i < MK_MAX_BUTTONS - 4; i++)
+    {
+        if(pad->gpio_maps[i+4] != -1)
+            __set_bit(mk_arcade_gpio_btn[i], input_dev->keybit);
     }
     
     // initialize gpio

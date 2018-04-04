@@ -43,7 +43,8 @@ MODULE_DESCRIPTION("Freeplay GPIO Arcade Joystick Driver");
 MODULE_LICENSE("GPL");
 
 #define MK_MAX_DEVICES		2
-#define MK_MAX_BUTTONS      13
+//#define MK_MAX_BUTTONS      13
+#define MK_MAX_BUTTONS      17
 
 #ifdef RPI2
 #define PERI_BASE        0x3F000000
@@ -55,7 +56,9 @@ MODULE_LICENSE("GPL");
 
 #define INP_GPIO(g) *(gpio+((g)/10)) &= ~(7<<(((g)%10)*3))
 #define OUT_GPIO(g) *(gpio+((g)/10)) |=  (1<<(((g)%10)*3))
-#define GPIO_READ(g)  *(gpio + 13) &= (1<<(g))
+#define GPIO_READ(g)  ((g < 32) ? (*(gpio + 13) &= (1<<(g))) : (*(gpio + 14) &= (1<<(g-32))))
+
+#define GET_GPIO(g) (*(gpio.addr + BCM2835_GPLEV0/4)&(1<<g)) // 0 if LOW, (1<<g) if HIGH
 
 #define SET_GPIO_ALT(g,a) *(gpio+(((g)/10))) |= (((a)<=3?(a)+4:(a)==4?3:2)<<(((g)%10)*3))
 
@@ -103,6 +106,18 @@ unsigned char data[MK_MAX_BUTTONS];     //so we always keep the state of data
 module_param_array_named(gpio2, gpio_cfg2.mk_arcade_gpio_maps_custom, int, &(gpio_cfg2.nargs), 0);
 MODULE_PARM_DESC(gpio2, "Numbers of custom GPIO for Arcade Joystick 2");
 
+#define HOTKEY_MODE_UNDEFINED   0
+#define HOTKEY_MODE_NORMAL      1
+#define HOTKEY_MODE_TOGGLE      2
+struct hkmode_config {
+    int mode[1];   //HOTKEY_MODE_*
+    unsigned int nargs;
+};
+static struct hkmode_config hkmode_cfg __initdata;
+
+module_param_array_named(hkmode, hkmode_cfg.mode, int, &(hkmode_cfg.nargs), 0);
+MODULE_PARM_DESC(hkmode, "Hotkey Button Mode: 1=NORMAL, 2=TOGGLE");
+
 enum mk_type {
     MK_NONE = 0,
     MK_ARCADE_GPIO,
@@ -119,7 +134,8 @@ struct mk_pad {
     struct input_dev *dev;
     enum mk_type type;
     char phys[32];
-    int gpio_maps[MK_MAX_BUTTONS]
+    int hotkey_mode;
+    int gpio_maps[MK_MAX_BUTTONS];
 };
 
 struct mk_nin_gpio {
@@ -148,15 +164,15 @@ struct mk_subdev {
 static struct mk *mk_base;
 
 // Map of the gpios :                     up, down, left, right, start, select, a,  b,  tr, y,  x,  tl, hk
-static const int mk_arcade_gpio_maps[] = {4,  17,    27,  22,    10,    9,      25, 24, 23, 18, 15, 14, 2 };
+static const int mk_arcade_gpio_maps[] = {4,  17,    27,  22,    10,    9,      25, 24, 23, 18, 15, 14, 2, -1, -1, -1, -1};
 // 2nd joystick on the b+ GPIOS                 up, down, left, right, start, select, a,  b,  tr, y,  x,  tl, hk
-static const int mk_arcade_gpio_maps_bplus[] = {11, 5,    6,    13,    19,    26,     21, 20, 16, 12, 7,  8,  3 };
+static const int mk_arcade_gpio_maps_bplus[] = {11, 5,    6,    13,    19,    26,     21, 20, 16, 12, 7,  8,  3, -1, -1, -1, -1};
 
 // Map joystick on the b+ GPIOS with TFT      up, down, left, right, start, select, a,  b,  tr, y,  x,  tl, hk
-static const int mk_arcade_gpio_maps_tft[] = {21, 13,    26,    19,    5,    6,     22, 4, 20, 17, 27,  16, 12};
+static const int mk_arcade_gpio_maps_tft[] = {21, 13,    26,    19,    5,    6,     22, 4, 20, 17, 27,  16, 12, -1, -1, -1, -1};
 
 static const short mk_arcade_gpio_btn[] = {
-    BTN_START, BTN_SELECT, BTN_A, BTN_B, BTN_TR, BTN_Y, BTN_X, BTN_TL, BTN_MODE
+    BTN_START, BTN_SELECT, BTN_A, BTN_B, BTN_TR, BTN_Y, BTN_X, BTN_TL, BTN_MODE, BTN_TL2, BTN_TR2, BTN_C, BTN_Z
 };
 
 static const char *mk_names[] = {
@@ -164,29 +180,39 @@ static const char *mk_names[] = {
 };
 
 /* GPIO UTILS */
-static void setGpioPullUps(int pullUps) {
+static void setGpioPullUps(uint32_t pullUps, uint32_t pullUpsHigh) {
     *(gpio + 37) = 0x02;
     udelay(10);
     *(gpio + 38) = pullUps;
+    *(gpio + 39) = pullUpsHigh;
     udelay(10);
     *(gpio + 37) = 0x00;
     *(gpio + 38) = 0x00;
+    *(gpio + 39) = 0x00;
 }
 
 static void setGpioAsInput(int gpioNum) {
     INP_GPIO(gpioNum);
 }
 
-static int getPullUpMask(int gpioMap[]){
-    int mask = 0x0000000;
+static int getPullUpMask(int gpioMap[], uint32_t *maskLow, uint32_t *maskHigh){
     int i;
+    *maskLow = 0x0000000;
+    *maskHigh = 0x0000000;
+    
     for(i=0; i<MK_MAX_BUTTONS;i++) {
         if(gpioMap[i] > -1){   // to avoid unused pins
-            int pin_mask  = 1<<gpioMap[i];
-            mask = mask | pin_mask;
+            
+            if(gpioMap[i] < 32)
+                *maskLow |= 1<<gpioMap[i];
+            else if(gpioMap[i] < 64)
+                *maskHigh |= 1<<(gpioMap[i] - 32);
         }
     }
-    return mask;
+    
+    //printk("mask low=0x%08X high=0x%08X\n", *maskLow, *maskHigh);
+    
+    return *maskLow;
 }
 
 static void mk_gpio_read_packet(struct mk_pad * pad, unsigned char *data) {
@@ -194,7 +220,7 @@ static void mk_gpio_read_packet(struct mk_pad * pad, unsigned char *data) {
     
     for (i = 0; i < MK_MAX_BUTTONS; i++) {
         if(pad->gpio_maps[i] != -1){    // to avoid unused buttons
-            if(i==12)  //the hotkey
+            if((i==12) && (pad->hotkey_mode == HOTKEY_MODE_TOGGLE))  //the hotkey
             {
                 //we use the hotkey as a toggle (press to toggle data[i])
                 unsigned char hk_state;
@@ -361,6 +387,8 @@ static int __init mk_setup_pad(struct mk *mk, int idx, int pad_type_arg) {
         return -EINVAL;
     }
     
+    pad->hotkey_mode = hkmode_cfg.mode[0];      //for now, the hkmode parameter is "global" to all pads
+    
     if (pad_type == MK_ARCADE_GPIO_CUSTOM) {
         
         // if the device is custom, be sure to get correct pins
@@ -449,7 +477,10 @@ static int __init mk_setup_pad(struct mk *mk, int idx, int pad_type_arg) {
         }
     }
     
-    setGpioPullUps(getPullUpMask(pad->gpio_maps));
+    uint32_t pullUpMaskLow, pullUpMaskHigh;
+    getPullUpMask(pad->gpio_maps, &pullUpMaskLow, &pullUpMaskHigh);
+    
+    setGpioPullUps(pullUpMaskLow, pullUpMaskHigh);
     printk("GPIO configured for pad%d\n", idx);
     
     err = input_register_device(pad->dev);
@@ -524,6 +555,10 @@ static int __init mk_init(void) {
         pr_err("io remap failed\n");
         return -EBUSY;
     }
+    
+    if(hkmode_cfg.nargs == 0) //if hkmode was not defined
+        hkmode_cfg.mode[0] = HOTKEY_MODE_TOGGLE; //default to HOTKEY_MODE_TOGGLE if not set
+    
     if (mk_cfg.nargs < 1) {
         pr_err("at least one device must be specified\n");
         return -EINVAL;
@@ -532,6 +567,7 @@ static int __init mk_init(void) {
         if (IS_ERR(mk_base))
             return -ENODEV;
     }
+    
     return 0;
 }
 

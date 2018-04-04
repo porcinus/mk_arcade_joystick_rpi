@@ -16,6 +16,10 @@ So i started to wire my joysticks and buttons to my raspberry pi, and I wrote th
 
 However, the Raspberry Pi Board B Rev 2 has a maximum of 21 usable GPIOs, not enough to wire all the 28 switches (2 joystick and 20 buttons) that a standard panel requires.
 
+UPDATE 0.1.5.6 : Added 4 buttons, the ability to use GPIO32 and higher, and hkmode parameter
+
+UPDATE 0.1.5.5 : Modified for use with Freeplay Zero/CM3
+
 UPDATE 0.1.5 : Added GPIO customization
 
 UPDATE 0.1.4 : Compatibily with rpi2 

@@ -118,6 +118,38 @@ static struct hkmode_config hkmode_cfg __initdata;
 module_param_array_named(hkmode, hkmode_cfg.mode, int, &(hkmode_cfg.nargs), 0);
 MODULE_PARM_DESC(hkmode, "Hotkey Button Mode: 1=NORMAL, 2=TOGGLE");
 
+struct i2cbus_config {
+    int busnum[1];   //HOTKEY_MODE_*
+    unsigned int nargs;
+};
+static struct i2cbus_config i2cbus_cfg __initdata;
+
+module_param_array_named(i2cbus, i2cbus_cfg.busnum, int, &(i2cbus_cfg.nargs), 0);
+MODULE_PARM_DESC(i2cbus, "I2C Bus Number /dev/i2c-# (typically 0 or 1)");
+
+struct analog_config {
+    int address[1];   //i2c address of the adc
+    unsigned int nargs;
+};
+static struct analog_config analog_x1_cfg __initdata;
+static struct analog_config analog_y1_cfg __initdata;
+static struct analog_config analog_x2_cfg __initdata;
+static struct analog_config analog_y2_cfg __initdata;
+
+module_param_array_named(x1addr, analog_x1_cfg.address, int, &(analog_x1_cfg.nargs), 0);
+MODULE_PARM_DESC(x1addr, "I2C address of x1 adc MCP3021A chip");
+
+module_param_array_named(y1addr, analog_y1_cfg.address, int, &(analog_y1_cfg.nargs), 0);
+MODULE_PARM_DESC(y1addr, "I2C address of y1 adc MCP3021A chip");
+
+module_param_array_named(x2addr, analog_x2_cfg.address, int, &(analog_x2_cfg.nargs), 0);
+MODULE_PARM_DESC(x2addr, "I2C address of x2 adc MCP3021A chip");
+
+module_param_array_named(y2addr, analog_y2_cfg.address, int, &(analog_y2_cfg.nargs), 0);
+MODULE_PARM_DESC(y2addr, "I2C address of y2 adc MCP3021A chip");
+
+
+
 enum mk_type {
     MK_NONE = 0,
     MK_ARCADE_GPIO,
@@ -565,6 +597,22 @@ static int __init mk_init(void) {
     if(hkmode_cfg.nargs == 0) //if hkmode was not defined
         hkmode_cfg.mode[0] = HOTKEY_MODE_TOGGLE; //default to HOTKEY_MODE_TOGGLE if not set
     
+    if(i2cbus_cfg.nargs == 0) //if i2cbus addr was not defined
+        i2cbus_cfg.busnum[0] = -1; //default to not using i2c
+    
+    
+    if(analog_x1_cfg.nargs == 0) //if analog input i2c addr was not defined
+        analog_x1_cfg.address[0] = 0; //default to not using it
+    
+    if(analog_y1_cfg.nargs == 0) //if analog input i2c addr was not defined
+        analog_y1_cfg.address[0] = 0; //default to not using it
+    
+    if(analog_x2_cfg.nargs == 0) //if analog input i2c addr was not defined
+        analog_x2_cfg.address[0] = 0; //default to not using it
+    
+    if(analog_y2_cfg.nargs == 0) //if analog input i2c addr was not defined
+        analog_y2_cfg.address[0] = 0; //default to not using it
+    
     if (mk_cfg.nargs < 1) {
         pr_err("at least one device must be specified\n");
         return -EINVAL;
@@ -573,6 +621,8 @@ static int __init mk_init(void) {
         if (IS_ERR(mk_base))
             return -ENODEV;
     }
+    
+    
     
     return 0;
 }

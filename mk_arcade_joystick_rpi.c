@@ -34,6 +34,8 @@
 #include <linux/mutex.h>
 #include <linux/slab.h>
 
+#include <linux/i2c.h>
+
 #include <linux/ioport.h>
 #include <asm/io.h>
 
@@ -149,6 +151,28 @@ module_param_array_named(y2addr, analog_y2_cfg.address, int, &(analog_y2_cfg.nar
 MODULE_PARM_DESC(y2addr, "I2C address of y2 adc MCP3021A chip");
 
 
+static struct i2c_board_info __initdata board_info[] =  {
+    {
+        I2C_BOARD_INFO("MCP3021X1", 0x48),
+    }
+};
+
+struct i2c_client *i2c_new_MCP3021(struct i2c_adapter *adapter, u16 address)
+{
+    struct i2c_board_info info = {
+        I2C_BOARD_INFO("MCP3021", address),
+    };
+    
+    return i2c_new_device(adapter, &info);
+}
+
+/*struct i2c_adapter* i2c_dev = NULL;
+ struct i2c_client* i2c_client_x1 = NULL;
+ struct i2c_client* i2c_client_y1 = NULL;
+ struct i2c_client* i2c_client_x2 = NULL;
+ struct i2c_client* i2c_client_y2 = NULL;*/
+
+
 
 enum mk_type {
     MK_NONE = 0,
@@ -167,6 +191,12 @@ struct mk_pad {
     enum mk_type type;
     char phys[32];
     int hotkey_mode;
+    /*
+     struct i2c_client* i2c_client_x1;
+     struct i2c_client* i2c_client_y1;
+     struct i2c_client* i2c_client_x2;
+     struct i2c_client* i2c_client_y2;
+     */
     int gpio_maps[MK_MAX_BUTTONS];
 };
 
@@ -347,8 +377,76 @@ static void mk_gpio_read_packet(struct mk_pad * pad, unsigned char *data) {
 static void mk_input_report(struct mk_pad * pad, unsigned char * data) {
     struct input_dev * dev = pad->dev;
     int j;
+    uint16_t adc_val = 0;
+    uint8_t buf[2];
     input_report_abs(dev, ABS_Y, !data[0]-!data[1]);
     input_report_abs(dev, ABS_X, !data[2]-!data[3]);
+    
+    
+    struct i2c_adapter* i2c_dev = NULL;
+    struct i2c_client* i2c_client_x1 = NULL;
+    //struct i2c_client* i2c_client_y1 = NULL;
+    //struct i2c_client* i2c_client_x2 = NULL;
+    //struct i2c_client* i2c_client_y2 = NULL;
+    
+    i2c_dev = i2c_get_adapter(1);//hardcoded
+    
+    if(i2c_dev)
+    {
+        //uint16_t value = 0;
+        
+        printk("mk_arcade_joystick_rpi: i2c bus %d opened\n", 1);
+        
+        i2c_client_x1 = i2c_new_MCP3021(i2c_dev, 72);//hardcoded 72
+        if(i2c_client_x1)
+        {
+            printk("mk_arcade_joystick_rpi: x1 assigned to i2c addr 0x%02X\n", 72);//hardcoded 72
+            
+            //adc_val = i2c_smbus_read_word_swapped(i2c_client_x1, 0);
+            struct i2c_msg msg;
+            
+            msg.addr = i2c_client_x1->addr;
+            msg.flags = i2c_client_x1->flags & I2C_M_TEN;
+            msg.flags |= I2C_M_RD;
+            msg.len = 2;
+            msg.buf = buf;
+            
+            /* Unlocked flavor */
+            __i2c_transfer(i2c_dev, &msg, 1);
+            
+            printk("mk_arcade_joystick_rpi: mk_input_report: x1 value: 0x%04X 0x%02X 0x%02X\n", adc_val, buf[0], buf[1]);
+            //input_report_abs(dev, ABS_HAT0X, adc_val);
+            i2c_unregister_device(i2c_client_x1);
+        }
+        
+    }
+    
+    
+    
+    /*
+     if(pad->i2c_client_x1)
+     {
+     adc_val = i2c_smbus_read_word_swapped(pad->i2c_client_x1, 0);
+     printk("mk_arcade_joystick_rpi: x1 value: 0x%04X\n", adc_val);
+     //        input_report_abs(dev, ABS_HAT0X, adc_val);
+     }
+     if(i2c_client_y1)
+     {
+     adc_val = i2c_smbus_read_word_swapped(i2c_client_y1, 0);
+     input_report_abs(dev, ABS_HAT0Y, adc_val);
+     }
+     
+     if(i2c_client_x2)
+     {
+     adc_val = i2c_smbus_read_word_swapped(i2c_client_x2, 0);
+     input_report_abs(dev, ABS_HAT1X, adc_val);
+     }
+     
+     if(i2c_client_y2)
+     {
+     adc_val = i2c_smbus_read_word_swapped(i2c_client_y2, 0);
+     input_report_abs(dev, ABS_HAT1Y, adc_val);
+     }*/
     
     for (j = 4; j < MK_MAX_BUTTONS; j++)
     {
@@ -357,6 +455,28 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data) {
     }
     input_sync(dev);
 }
+
+//See THIS
+#error work handler
+static void i2c_work_handler(struct work_struct* work)
+{
+    
+    //struct pad_state* new_pad_state;
+    //new_pad_state = {
+    //.primary_x = value,
+    //.primary_y = 0
+    //};
+    
+    //pad_data->pad_state = new_pad_state
+    
+    //printk(KERN_INFO "Got value %d", value);
+    
+    input_report_abs(pad_data->device, ABS_X, i2c_read_byte(0x1));
+    input_report_abs(pad_data->device, ABS_Y, i2c_read_byte(0x2));
+    input_sync(pad_data->device);
+}
+DECLARE_WORK(i2c_work, i2c_work_handler);
+
 
 static void mk_process_packet(struct mk *mk) {
     
@@ -423,6 +543,10 @@ static int __init mk_setup_pad(struct mk *mk, int idx, int pad_type_arg) {
     }
     
     pad->hotkey_mode = hkmode_cfg.mode[0];      //for now, the hkmode parameter is "global" to all pads
+    //    pad->i2c_client_x1 = i2c_client_x1;
+    //    pad->i2c_client_y1 = i2c_client_y1;
+    //    pad->i2c_client_x2 = i2c_client_x2;
+    //    pad->i2c_client_y2 = i2c_client_y2;
     
     if (pad_type == MK_ARCADE_GPIO_CUSTOM) {
         
@@ -498,6 +622,22 @@ static int __init mk_setup_pad(struct mk *mk, int idx, int pad_type_arg) {
     
     for (i = 0; i < 2; i++)
         input_set_abs_params(input_dev, ABS_X + i, -1, 1, 0, 0);
+    
+    
+    //i2c ADC
+    //    if(pad->i2c_client_x1)
+    input_set_abs_params(input_dev, ABS_HAT0X, 0, 1023, 4, 8);
+    /*
+     if(pad->i2c_client_y1)
+     input_set_abs_params(input_dev, ABS_HAT0Y, 0, 1023, 4, 8);
+     
+     if(pad->i2c_client_x2)
+     input_set_abs_params(input_dev, ABS_HAT1X, 0, 1023, 4, 8);
+     
+     if(pad->i2c_client_y2)
+     input_set_abs_params(input_dev, ABS_HAT1Y, 0, 1023, 4, 8);
+     */
+    
     for (i = 0; i < MK_MAX_BUTTONS - 4; i++)
     {
         if(pad->gpio_maps[i+4] != -1)
@@ -613,6 +753,62 @@ static int __init mk_init(void) {
     if(analog_y2_cfg.nargs == 0) //if analog input i2c addr was not defined
         analog_y2_cfg.address[0] = 0; //default to not using it
     
+    
+    
+    if(i2cbus_cfg.busnum[0] >= 0)
+    {
+        /*        i2c_dev = i2c_get_adapter(i2cbus_cfg.busnum[0]);
+         
+         if(i2c_dev)
+         {
+         uint16_t value = 0;
+         
+         printk("mk_arcade_joystick_rpi: i2c bus %d opened\n", i2cbus_cfg.busnum[0]);
+         
+         if(analog_x1_cfg.address[0] > 0)
+         {
+         i2c_client_x1 = i2c_new_MCP3021(i2c_dev, analog_x1_cfg.address[0]);
+         if(i2c_client_x1)
+         {
+         printk("mk_arcade_joystick_rpi: x1 assigned to i2c addr 0x%02X\n", analog_x1_cfg.address[0]);
+         
+         value = i2c_smbus_read_word_swapped(i2c_client_x1, 0);
+         printk("mk_arcade_joystick_rpi: initial x1 value: 0x%04X\n", value);
+         }
+         }
+         if(analog_y1_cfg.address[0] > 0)
+         {
+         i2c_client_y1 = i2c_new_MCP3021(i2c_dev, analog_y1_cfg.address[0]);
+         if(i2c_client_y1)
+         printk("mk_arcade_joystick_rpi: y1 assigned to i2c addr 0x%02X\n", analog_y1_cfg.address[0]);
+         
+         value = i2c_smbus_read_word_swapped(i2c_client_y1, 0);
+         printk("mk_arcade_joystick_rpi: initial y1 value: 0x%04X\n", value);
+         }
+         if(analog_x2_cfg.address[0] > 0)
+         {
+         i2c_client_x2 = i2c_new_MCP3021(i2c_dev, analog_x2_cfg.address[0]);
+         if(i2c_client_x2)
+         printk("mk_arcade_joystick_rpi: x2 assigned to i2c addr 0x%02X\n", analog_x2_cfg.address[0]);
+         
+         value = i2c_smbus_read_word_swapped(i2c_client_x2, 0);
+         printk("mk_arcade_joystick_rpi: initial x2 value: 0x%04X\n", value);
+         }
+         if(analog_y2_cfg.address[0] > 0)
+         {
+         i2c_client_y2 = i2c_new_MCP3021(i2c_dev, analog_y2_cfg.address[0]);
+         if(i2c_client_y2)
+         printk("mk_arcade_joystick_rpi: y2 assigned to i2c addr 0x%02X\n", analog_y2_cfg.address[0]);
+         
+         value = i2c_smbus_read_word_swapped(i2c_client_y2, 0);
+         printk("mk_arcade_joystick_rpi: initial y2 value: 0x%04X\n", value);
+         
+         }
+         }*/
+    }
+    
+    
+    
     if (mk_cfg.nargs < 1) {
         pr_err("at least one device must be specified\n");
         return -EINVAL;
@@ -622,14 +818,22 @@ static int __init mk_init(void) {
             return -ENODEV;
     }
     
-    
-    
     return 0;
 }
 
 static void __exit mk_exit(void) {
     if (mk_base)
         mk_remove(mk_base);
+    /*
+     if(i2c_client_x1)
+     i2c_unregister_device(i2c_client_x1);
+     if(i2c_client_y1)
+     i2c_unregister_device(i2c_client_y1);
+     if(i2c_client_x2)
+     i2c_unregister_device(i2c_client_x2);
+     if(i2c_client_y2)
+     i2c_unregister_device(i2c_client_y2);
+     */
     
     iounmap(gpio);
 }

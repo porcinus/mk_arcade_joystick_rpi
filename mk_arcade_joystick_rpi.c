@@ -174,6 +174,10 @@ struct i2c_client* i2c_client_x1 = NULL;
 struct i2c_client* i2c_client_y1 = NULL;
 struct i2c_client* i2c_client_x2 = NULL;
 struct i2c_client* i2c_client_y2 = NULL;
+uint16_t x1_max = 0;
+uint16_t x1_min = 0xFFFF;
+uint16_t y1_max = 0;
+uint16_t y1_min = 0xFFFF;
 
 
 
@@ -384,27 +388,48 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data) {
     if(i2c_client_x1)
     {
         adc_val = i2c_smbus_read_word_swapped(i2c_client_x1, 0);
-        printk("mk_arcade_joystick_rpi: x1 value: 0x%04X\n", adc_val);
+        if(adc_val < x1_min)
+        {
+            x1_min = adc_val;
+            printk("mk_arcade_joystick_rpi: x1 new min value: 0x%04X\n", adc_val);
+        }
+        if(adc_val > x1_max)
+        {
+            x1_max = adc_val;
+            printk("mk_arcade_joystick_rpi: x1 new max value: 0x%04X\n", adc_val);
+        }
+        
         input_report_abs(dev, ABS_HAT0X, adc_val);
     }
-    /*
-     if(i2c_client_y1)
-     {
-     adc_val = i2c_smbus_read_word_swapped(i2c_client_y1, 0);
-     input_report_abs(dev, ABS_HAT0Y, adc_val);
-     }
-     
-     if(i2c_client_x2)
-     {
-     adc_val = i2c_smbus_read_word_swapped(i2c_client_x2, 0);
-     input_report_abs(dev, ABS_HAT1X, adc_val);
-     }
-     
-     if(i2c_client_y2)
-     {
-     adc_val = i2c_smbus_read_word_swapped(i2c_client_y2, 0);
-     input_report_abs(dev, ABS_HAT1Y, adc_val);
-     }*/
+    
+    if(i2c_client_y1)
+    {
+        adc_val = i2c_smbus_read_word_swapped(i2c_client_y1, 0);
+        if(adc_val < y1_min)
+        {
+            y1_min = adc_val;
+            printk("mk_arcade_joystick_rpi: y1 new min value: 0x%04X\n", adc_val);
+        }
+        if(adc_val > y1_max)
+        {
+            y1_max = adc_val;
+            printk("mk_arcade_joystick_rpi: y1 new max value: 0x%04X\n", adc_val);
+        }
+        
+        input_report_abs(dev, ABS_HAT0Y, adc_val);
+    }
+    
+    if(i2c_client_x2)
+    {
+        adc_val = i2c_smbus_read_word_swapped(i2c_client_x2, 0);
+        input_report_abs(dev, ABS_HAT1X, adc_val);
+    }
+    
+    if(i2c_client_y2)
+    {
+        adc_val = i2c_smbus_read_word_swapped(i2c_client_y2, 0);
+        input_report_abs(dev, ABS_HAT1Y, adc_val);
+    }
     
     for (j = 4; j < MK_MAX_BUTTONS; j++)
     {
@@ -567,20 +592,21 @@ static int __init mk_setup_pad(struct mk *mk, int idx, int pad_type_arg) {
     for (i = 0; i < 2; i++)
         input_set_abs_params(input_dev, ABS_X + i, -1, 1, 0, 0);
     
+    //values from testing PSP 1000 stick on 3021
+    //3221 is 12-bit, 3021 is 10-bit, but both report as 12-bits
+    
     
     //i2c ADC
     if(i2c_client_x1)
-        input_set_abs_params(input_dev, ABS_HAT0X, 0, 1023, 4, 8);
-    /*
-     if(pad->i2c_client_y1)
-     input_set_abs_params(input_dev, ABS_HAT0Y, 0, 1023, 4, 8);
-     
-     if(pad->i2c_client_x2)
-     input_set_abs_params(input_dev, ABS_HAT1X, 0, 1023, 4, 8);
-     
-     if(pad->i2c_client_y2)
-     input_set_abs_params(input_dev, ABS_HAT1Y, 0, 1023, 4, 8);
-     */
+        input_set_abs_params(input_dev, ABS_HAT0X, 0x280, 0xC00, 16, 64);
+    if(i2c_client_y1)
+        input_set_abs_params(input_dev, ABS_HAT0Y, 0x280, 0xC00, 16, 64);
+    
+    if(i2c_client_x2)
+        input_set_abs_params(input_dev, ABS_HAT1X, 0x280, 0xC00, 16, 64);
+    
+    if(i2c_client_y2)
+        input_set_abs_params(input_dev, ABS_HAT1Y, 0x280, 0xC00, 16, 64);
     
     for (i = 0; i < MK_MAX_BUTTONS - 4; i++)
     {

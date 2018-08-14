@@ -391,12 +391,10 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data) {
         if(adc_val < x1_min)
         {
             x1_min = adc_val;
-            printk("mk_arcade_joystick_rpi: x1 new min value: 0x%04X\n", adc_val);
         }
         if(adc_val > x1_max)
         {
             x1_max = adc_val;
-            printk("mk_arcade_joystick_rpi: x1 new max value: 0x%04X\n", adc_val);
         }
         
         input_report_abs(dev, ABS_HAT0X, adc_val);
@@ -408,14 +406,12 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data) {
         if(adc_val < y1_min)
         {
             y1_min = adc_val;
-            printk("mk_arcade_joystick_rpi: y1 new min value: 0x%04X\n", adc_val);
         }
         if(adc_val > y1_max)
         {
             y1_max = adc_val;
-            printk("mk_arcade_joystick_rpi: y1 new max value: 0x%04X\n", adc_val);
         }
-        
+
         input_report_abs(dev, ABS_HAT0Y, adc_val);
     }
     
@@ -594,19 +590,19 @@ static int __init mk_setup_pad(struct mk *mk, int idx, int pad_type_arg) {
     
     //values from testing PSP 1000 stick on 3021
     //3221 is 12-bit, 3021 is 10-bit, but both report as 12-bits
-    
+
     
     //i2c ADC
     if(i2c_client_x1)
-        input_set_abs_params(input_dev, ABS_HAT0X, 0x280, 0xC00, 16, 64);
+        input_set_abs_params(input_dev, ABS_HAT0X, 0x280, 0xC00, 16, 384);
     if(i2c_client_y1)
-        input_set_abs_params(input_dev, ABS_HAT0Y, 0x280, 0xC00, 16, 64);
-    
+        input_set_abs_params(input_dev, ABS_HAT0Y, 0x280, 0xC00, 16, 384);
+
     if(i2c_client_x2)
-        input_set_abs_params(input_dev, ABS_HAT1X, 0x280, 0xC00, 16, 64);
+        input_set_abs_params(input_dev, ABS_HAT1X, 0x280, 0xC00, 16, 384);
     
     if(i2c_client_y2)
-        input_set_abs_params(input_dev, ABS_HAT1Y, 0x280, 0xC00, 16, 64);
+        input_set_abs_params(input_dev, ABS_HAT1Y, 0x280, 0xC00, 16, 384);
     
     for (i = 0; i < MK_MAX_BUTTONS - 4; i++)
     {
@@ -709,17 +705,17 @@ static int __init mk_init(void) {
     
     if(hkmode_cfg.nargs == 0) //if hkmode was not defined
         hkmode_cfg.mode[0] = HOTKEY_MODE_TOGGLE; //default to HOTKEY_MODE_TOGGLE if not set
-    
+
     if(i2cbus_cfg.nargs == 0) //if i2cbus addr was not defined
         i2cbus_cfg.busnum[0] = -1; //default to not using i2c
-    
+
     
     if(analog_x1_cfg.nargs == 0) //if analog input i2c addr was not defined
         analog_x1_cfg.address[0] = 0; //default to not using it
-    
+
     if(analog_y1_cfg.nargs == 0) //if analog input i2c addr was not defined
         analog_y1_cfg.address[0] = 0; //default to not using it
-    
+
     if(analog_x2_cfg.nargs == 0) //if analog input i2c addr was not defined
         analog_x2_cfg.address[0] = 0; //default to not using it
     
@@ -730,7 +726,32 @@ static int __init mk_init(void) {
     
     if(i2cbus_cfg.busnum[0] >= 0)
     {
+        int rm;
+       
+        rm = request_module("i2c_bcm2835");
+        printk("mk_arcade_joystick_rpi: request_module i2c_bcm2835 returned %d\n", rm);
+        
+        
         i2c_dev = i2c_get_adapter(i2cbus_cfg.busnum[0]);
+        
+        if(!i2c_dev)
+        {
+            printk("mk_arcade_joystick_rpi: i2c bus %d NOT opened (sleeping and retrying)\n", i2cbus_cfg.busnum[0]);
+            msleep(500);
+            i2c_dev = i2c_get_adapter(i2cbus_cfg.busnum[0]);
+        }
+        if(!i2c_dev)
+        {
+            printk("mk_arcade_joystick_rpi: i2c bus %d NOT opened (sleeping and retrying)\n", i2cbus_cfg.busnum[0]);
+            msleep(500);
+            i2c_dev = i2c_get_adapter(i2cbus_cfg.busnum[0]);
+        }
+        if(!i2c_dev)
+        {
+            printk("mk_arcade_joystick_rpi: i2c bus %d NOT opened (sleeping and retrying)\n", i2cbus_cfg.busnum[0]);
+            msleep(500);
+            i2c_dev = i2c_get_adapter(i2cbus_cfg.busnum[0]);
+        }
         
         if(i2c_dev)
         {
@@ -763,7 +784,7 @@ static int __init mk_init(void) {
                 i2c_client_x2 = i2c_new_MCP3021(i2c_dev, analog_x2_cfg.address[0]);
                 if(i2c_client_x2)
                     printk("mk_arcade_joystick_rpi: x2 assigned to i2c addr 0x%02X\n", analog_x2_cfg.address[0]);
-                
+
                 value = i2c_smbus_read_word_swapped(i2c_client_x2, 0);
                 printk("mk_arcade_joystick_rpi: initial x2 value: 0x%04X\n", value);
             }
@@ -775,9 +796,14 @@ static int __init mk_init(void) {
                 
                 value = i2c_smbus_read_word_swapped(i2c_client_y2, 0);
                 printk("mk_arcade_joystick_rpi: initial y2 value: 0x%04X\n", value);
-                
+
             }
         }
+        else
+        {
+            printk("mk_arcade_joystick_rpi ERROR: i2c bus %d NOT opened (make sure that i2c is enabled and loaded before this driver)\n", i2cbus_cfg.busnum[0]);
+        }
+
     }
     
     
@@ -798,10 +824,22 @@ static void __exit mk_exit(void) {
     if (mk_base)
         mk_remove(mk_base);
     
+    printk("mk_arcade_joystick_rpi: exiting\n");
+
     if(i2c_client_x1)
+    {
         i2c_unregister_device(i2c_client_x1);
+        
+        printk("mk_arcade_joystick_rpi: x1 min value: 0x%04X\n", x1_min);
+        printk("mk_arcade_joystick_rpi: x1 max value: 0x%04X\n", x1_max);
+    }
     if(i2c_client_y1)
+    {
         i2c_unregister_device(i2c_client_y1);
+        
+        printk("mk_arcade_joystick_rpi: y1 min value: 0x%04X\n", y1_min);
+        printk("mk_arcade_joystick_rpi: y1 max value: 0x%04X\n", y1_max);
+    }
     if(i2c_client_x2)
         i2c_unregister_device(i2c_client_x2);
     if(i2c_client_y2)

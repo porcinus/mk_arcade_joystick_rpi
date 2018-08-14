@@ -380,8 +380,8 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data) {
     int j;
     uint16_t adc_val = 0;
     uint8_t buf[2];
-    input_report_abs(dev, ABS_Y, !data[0]-!data[1]);
-    input_report_abs(dev, ABS_X, !data[2]-!data[3]);
+    input_report_abs(dev, ABS_HAT0Y, !data[0]-!data[1]);
+    input_report_abs(dev, ABS_HAT0X, !data[2]-!data[3]);
     
     
     
@@ -397,7 +397,7 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data) {
             x1_max = adc_val;
         }
         
-        input_report_abs(dev, ABS_HAT0X, adc_val);
+        input_report_abs(dev, ABS_X, adc_val);
     }
     
     if(i2c_client_y1)
@@ -412,19 +412,19 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data) {
             y1_max = adc_val;
         }
 
-        input_report_abs(dev, ABS_HAT0Y, adc_val);
+        input_report_abs(dev, ABS_Y, adc_val);
     }
     
     if(i2c_client_x2)
     {
         adc_val = i2c_smbus_read_word_swapped(i2c_client_x2, 0);
-        input_report_abs(dev, ABS_HAT1X, adc_val);
+        input_report_abs(dev, ABS_RX, adc_val);
     }
     
     if(i2c_client_y2)
     {
         adc_val = i2c_smbus_read_word_swapped(i2c_client_y2, 0);
-        input_report_abs(dev, ABS_HAT1Y, adc_val);
+        input_report_abs(dev, ABS_RY, adc_val);
     }
     
     for (j = 4; j < MK_MAX_BUTTONS; j++)
@@ -585,25 +585,30 @@ static int __init mk_setup_pad(struct mk *mk, int idx, int pad_type_arg) {
             break;
     }
     
-    for (i = 0; i < 2; i++)
-        input_set_abs_params(input_dev, ABS_X + i, -1, 1, 0, 0);
+    input_set_abs_params(input_dev, ABS_HAT0X, -1, 1, 0, 0);
+    input_set_abs_params(input_dev, ABS_HAT0Y, -1, 1, 0, 0);
     
     //values from testing PSP 1000 stick on 3021
     //3221 is 12-bit, 3021 is 10-bit, but both report as 12-bits
 
-    
+/*
+[ 1013.444203] mk_arcade_joystick_rpi: x1 min value: 0x01F6
+[ 1013.444206] mk_arcade_joystick_rpi: x1 max value: 0x0D38
+[ 1013.444248] mk_arcade_joystick_rpi: y1 min value: 0x0142
+[ 1013.444250] mk_arcade_joystick_rpi: y1 max value: 0x0CF8
+*/
+
     //i2c ADC
     if(i2c_client_x1)
-        input_set_abs_params(input_dev, ABS_HAT0X, 0x280, 0xC00, 16, 384);
+        input_set_abs_params(input_dev, ABS_X, 0x300, 0xB80, 16, 384);//384
     if(i2c_client_y1)
-        input_set_abs_params(input_dev, ABS_HAT0Y, 0x280, 0xC00, 16, 384);
+        input_set_abs_params(input_dev, ABS_Y, 0x300, 0xB80, 16, 384);
 
     if(i2c_client_x2)
-        input_set_abs_params(input_dev, ABS_HAT1X, 0x280, 0xC00, 16, 384);
-    
+        input_set_abs_params(input_dev, ABS_RX, 0x300, 0xB80, 16, 384);
     if(i2c_client_y2)
-        input_set_abs_params(input_dev, ABS_HAT1Y, 0x280, 0xC00, 16, 384);
-    
+        input_set_abs_params(input_dev, ABS_RY, 0x300, 0xB80, 16, 384);
+
     for (i = 0; i < MK_MAX_BUTTONS - 4; i++)
     {
         if(pad->gpio_maps[i+4] != -1)

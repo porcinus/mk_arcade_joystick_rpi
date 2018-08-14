@@ -380,9 +380,28 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data) {
     int j;
     uint16_t adc_val = 0;
     uint8_t buf[2];
-    input_report_abs(dev, ABS_HAT0Y, !data[0]-!data[1]);
-    input_report_abs(dev, ABS_HAT0X, !data[2]-!data[3]);
     
+    
+    if(i2c_client_x1)
+    {
+        //if using analog, then the DPAD is ABS_HAT0X
+        input_report_abs(dev, ABS_HAT0X, !data[2]-!data[3]);
+    }
+    else
+    {
+        input_report_abs(dev, ABS_X, !data[2]-!data[3]);
+    }
+
+    if(i2c_client_y1)
+    {
+        //if using analog, then the DPAD is ABS_HAT0Y
+        input_report_abs(dev, ABS_HAT0Y, !data[0]-!data[1]);
+    }
+    else
+    {
+        input_report_abs(dev, ABS_Y, !data[0]-!data[1]);
+    }
+
     
     
     if(i2c_client_x1)
@@ -585,8 +604,25 @@ static int __init mk_setup_pad(struct mk *mk, int idx, int pad_type_arg) {
             break;
     }
     
-    input_set_abs_params(input_dev, ABS_HAT0X, -1, 1, 0, 0);
-    input_set_abs_params(input_dev, ABS_HAT0Y, -1, 1, 0, 0);
+    if(i2c_client_x1)
+    {
+        //if using analog, then DPAD is ABS_HAT0X
+        input_set_abs_params(input_dev, ABS_HAT0X, -1, 1, 0, 0);
+    }
+    else
+    {
+        input_set_abs_params(input_dev, ABS_X, -1, 1, 0, 0);
+    }
+    
+    if(i2c_client_y1)
+    {
+        //if using analog, then DPAD is ABS_HAT0Y
+        input_set_abs_params(input_dev, ABS_HAT0Y, -1, 1, 0, 0);
+    }
+    else
+    {
+        input_set_abs_params(input_dev, ABS_Y, -1, 1, 0, 0);
+    }
     
     //values from testing PSP 1000 stick on 3021
     //3221 is 12-bit, 3021 is 10-bit, but both report as 12-bits

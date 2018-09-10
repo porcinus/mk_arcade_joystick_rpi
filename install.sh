@@ -15,4 +15,6 @@ sudo sh -c 'echo "#this next line is for use with 4 extra buttons (maybe L2,R2,C
 sudo sh -c 'echo "#options mk_arcade_joystick_rpi map=4 gpio=4,17,6,5,19,26,16,24,23,18,15,14,-20,42,43,41,40 hkmode=2" >> /etc/modprobe.d/mk_arcade_joystick.conf'
 sudo sh -c 'echo "#this next line is for use with a single PSP1000 analog stick" >> /etc/modprobe.d/mk_arcade_joystick.conf'
 sudo sh -c 'echo "#options mk_arcade_joystick_rpi map=4 hkmode=2 i2cbus=1 x1addr=72 y1addr=77 gpio=4,17,6,5,19,26,16,24,23,18,15,14,-20,42,43,-1,41" >> /etc/modprobe.d/mk_arcade_joystick.conf'
+sudo sh -c 'echo "#this next line is for use with 2 PSP1000 analog sticks" >> /etc/modprobe.d/mk_arcade_joystick.conf'
+sudo sh -c 'echo "#options mk_arcade_joystick_rpi map=4 hkmode=2 i2cbus=1 x1addr=72 y1addr=77 x2addr=75 y2addr=79 gpio=4,17,6,5,19,26,16,24,23,18,15,14,-20,42,43,-1,41" >> /etc/modprobe.d/mk_arcade_joystick.conf'
 sudo modprobe mk_arcade_joystick_rpi

@@ -1,3 +1,5 @@
+This version of mk_arcade_joystick_rpi is intended for use with the Freeplay Zero and Freeplay CM3 DIY kits that allow you to build a Raspberry Pi Zero or Raspberry Pi Compute Module 3 into a handheld portable unit often used for retro gaming.
+
 # mk_arcade_joystick_rpi #
 
 *** The information here is mainly historic from the previous version.  The version here likely works differently. ***

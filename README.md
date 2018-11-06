@@ -1,5 +1,31 @@
 This version of mk_arcade_joystick_rpi is intended for use with the Freeplay Zero and Freeplay CM3 DIY kits that allow you to build a Raspberry Pi Zero or Raspberry Pi Compute Module 3 into a handheld portable unit often used for retro gaming.
 
+### Installation ###
+
+### Installation Script ###
+
+The install.sh included with this repository should build and install the driver.  Prior to running this script, you will likely want to install/update your kernel and kernel headers, just to be sure that they are current.
+
+sudo apt-get install -y --force-yes raspberrypi-kernel raspberrypi-kernel-headers
+<REBOOT>
+./install.sh                    (from this repository's directory)
+
+
+### Driver Options ###
+
+Please see install.sh (or /etc/modprobe.d/mk_arcade_joystick.conf) for examples.
+
+This command will list the available parameters.
+modinfo mk_arcade_joystick_rpi
+
+
+### Testing ###
+
+Use the following command to test joysticks inputs :
+```shell
+jstest /dev/input/js0
+```
+
 # mk_arcade_joystick_rpi #
 
 *** The information here is mainly historic from the previous version.  The version here likely works differently. ***
@@ -36,29 +62,6 @@ The new Raspberry Pi B+ Revision brought us 9 more GPIOs, so we are now able to 
 
 ## The Software ##
 The joystick driver is based on the gamecon_gpio_rpi driver by [marqs](https://github.com/marqs85)
-
-### Installation ###
-
-### Installation Script ###
-
-The install.sh included with this repository should build and install the driver.
-
-
-### Driver Options ###
-
-Please see install.sh (or /etc/modprobe.d/mk_arcade_joystick.conf) for examples.
-
-This command will list the available parameters.
-modinfo mk_arcade_joystick_rpi
-
-
-### Testing ###
-
-Use the following command to test joysticks inputs :
-```shell
-jstest /dev/input/js0
-```
-
 
 
 Credits

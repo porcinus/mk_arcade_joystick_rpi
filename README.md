@@ -7,7 +7,9 @@ This version of mk_arcade_joystick_rpi is intended for use with the Freeplay Zer
 The install.sh included with this repository should build and install the driver.  Prior to running this script, you will likely want to install/update your kernel and kernel headers, just to be sure that they are current.
 
 sudo apt-get install -y --force-yes raspberrypi-kernel raspberrypi-kernel-headers
+
 <REBOOT>
+
 ./install.sh                    (from this repository's directory)
 
 

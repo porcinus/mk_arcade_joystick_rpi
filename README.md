@@ -8,7 +8,7 @@ The install.sh included with this repository should build and install the driver
 
 sudo apt-get install -y --force-yes raspberrypi-kernel raspberrypi-kernel-headers
 
-<REBOOT>
+(REBOOT)
 
 ./install.sh                    (from this repository's directory)
 

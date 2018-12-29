@@ -133,10 +133,12 @@ struct analog_config {
     int address[1];   //i2c address of the adc
     unsigned int nargs;
 };
+
 static struct analog_config analog_x1_cfg __initdata;
 static struct analog_config analog_y1_cfg __initdata;
 static struct analog_config analog_x2_cfg __initdata;
 static struct analog_config analog_y2_cfg __initdata;
+
 
 module_param_array_named(x1addr, analog_x1_cfg.address, int, &(analog_x1_cfg.nargs), 0);
 MODULE_PARM_DESC(x1addr, "I2C address of x1 adc MCP3021A chip");
@@ -149,6 +151,34 @@ MODULE_PARM_DESC(x2addr, "I2C address of x2 adc MCP3021A chip");
 
 module_param_array_named(y2addr, analog_y2_cfg.address, int, &(analog_y2_cfg.nargs), 0);
 MODULE_PARM_DESC(y2addr, "I2C address of y2 adc MCP3021A chip");
+
+
+struct analog_direction_config { //nns: add analog direction
+    int dir[1];
+    unsigned int nargs;
+};
+
+static struct analog_direction_config analog_x1_direction_cfg __initdata;
+static struct analog_direction_config analog_y1_direction_cfg __initdata;
+static struct analog_direction_config analog_x2_direction_cfg __initdata;
+static struct analog_direction_config analog_y2_direction_cfg __initdata;
+
+module_param_array_named(x1dir, analog_x1_direction_cfg.dir, int, &(analog_x1_direction_cfg.nargs), 0);
+MODULE_PARM_DESC(x1dir, "x1 adc direction");
+
+module_param_array_named(y1dir, analog_y1_direction_cfg.dir, int, &(analog_y1_direction_cfg.nargs), 0);
+MODULE_PARM_DESC(y1dir, "y1 adc direction");
+
+module_param_array_named(x2dir, analog_x2_direction_cfg.dir, int, &(analog_x2_direction_cfg.nargs), 0);
+MODULE_PARM_DESC(x2dir, "x2 adc direction");
+
+module_param_array_named(y2dir, analog_y2_direction_cfg.dir, int, &(analog_y2_direction_cfg.nargs), 0);
+MODULE_PARM_DESC(y2dir, "y2 adc direction");
+
+
+
+
+
 
 struct delayed_work mk_delayed_work;
 struct mk *g_mk = NULL;
@@ -179,6 +209,10 @@ uint16_t x1_min = 0xFFFF;
 uint16_t y1_max = 0;
 uint16_t y1_min = 0xFFFF;
 
+bool x1_reverse = false; //nns: x1 reverse direction
+bool y1_reverse = false; //nns: y1 reverse direction
+bool x2_reverse = false; //nns: x2 reverse direction
+bool y2_reverse = false; //nns: y2 reverse direction
 
 
 enum mk_type {
@@ -407,6 +441,8 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data) {
     if(i2c_client_x1)
     {
         adc_val = i2c_smbus_read_word_swapped(i2c_client_x1, 0);
+        if(x1_reverse){adc_val = 4096 - adc_val;} //nns: reverse 12bits value
+        
         if(adc_val < x1_min)
         {
             x1_min = adc_val;
@@ -422,6 +458,8 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data) {
     if(i2c_client_y1)
     {
         adc_val = i2c_smbus_read_word_swapped(i2c_client_y1, 0);
+        if(y1_reverse){adc_val = 4096 - adc_val;} //nns: reverse 12bits value
+        	
         if(adc_val < y1_min)
         {
             y1_min = adc_val;
@@ -437,12 +475,16 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data) {
     if(i2c_client_x2)
     {
         adc_val = i2c_smbus_read_word_swapped(i2c_client_x2, 0);
+        if(x2_reverse){adc_val = 4096 - adc_val;} //nns: reverse 12bits value
+        	
         input_report_abs(dev, ABS_RX, adc_val);
     }
     
     if(i2c_client_y2)
     {
         adc_val = i2c_smbus_read_word_swapped(i2c_client_y2, 0);
+        if(y2_reverse){adc_val = 4096 - adc_val;} //nns: reverse 12bits value
+        	
         input_report_abs(dev, ABS_RY, adc_val);
     }
     
@@ -632,14 +674,27 @@ static int __init mk_setup_pad(struct mk *mk, int idx, int pad_type_arg) {
 [ 1013.444206] mk_arcade_joystick_rpi: x1 max value: 0x0D38
 [ 1013.444248] mk_arcade_joystick_rpi: y1 min value: 0x0142
 [ 1013.444250] mk_arcade_joystick_rpi: y1 max value: 0x0CF8
+
+nns:
+[  +0.000103] mk_arcade_joystick_rpi: x1 min value: 0x0176
+[  +0.000006] mk_arcade_joystick_rpi: x1 max value: 0x0D5A
+[  +0.000079] mk_arcade_joystick_rpi: y1 min value: 0x0205
+[  +0.000005] mk_arcade_joystick_rpi: y1 max value: 0x0D32
 */
 
     //i2c ADC
     if(i2c_client_x1)
-        input_set_abs_params(input_dev, ABS_X, 0x300, 0xB80, 16, 384);//384
+        input_set_abs_params(input_dev, ABS_X, 0x176, 0xD5A, 16, 384);//384
     if(i2c_client_y1)
-        input_set_abs_params(input_dev, ABS_Y, 0x300, 0xB80, 16, 384);
+        input_set_abs_params(input_dev, ABS_Y, 0x205, 0xD32, 16, 384);
 
+/*
+    //i2c ADC
+    if(i2c_client_x1)
+        input_set_abs_params(input_dev, ABS_X, 0x1A9, 0xCED, 16, 384);//384
+    if(i2c_client_y1)
+        input_set_abs_params(input_dev, ABS_Y, 0x213, 0xD02, 16, 384);
+*/
     if(i2c_client_x2)
         input_set_abs_params(input_dev, ABS_RX, 0x300, 0xB80, 16, 384);
     if(i2c_client_y2)
@@ -765,6 +820,23 @@ static int __init mk_init(void) {
     
     
     
+    if(analog_x1_direction_cfg.nargs > 0){ //if x1dir set
+    	if(analog_x1_direction_cfg.dir[0]<0){x1_reverse=true;} //nns:direction
+		}
+		
+    if(analog_y1_direction_cfg.nargs > 0){ //if y1dir set
+      if(analog_y1_direction_cfg.dir[0]<0){y1_reverse=true;} //nns:direction
+		}
+		
+    if(analog_x2_direction_cfg.nargs > 0){ //if x2dir set
+      if(analog_x2_direction_cfg.dir[0]<0){x2_reverse=true;} //nns:direction
+		}
+		
+    if(analog_y2_direction_cfg.nargs > 0){ //if y2dir set
+      if(analog_y2_direction_cfg.dir[0]<0){y2_reverse=true;} //nns:direction
+		}
+    
+    
     if(i2cbus_cfg.busnum[0] >= 0)
     {
         int rm;
@@ -808,6 +880,12 @@ static int __init mk_init(void) {
                     printk("mk_arcade_joystick_rpi: x1 assigned to i2c addr 0x%02X\n", analog_x1_cfg.address[0]);
                     
                     value = i2c_smbus_read_word_swapped(i2c_client_x1, 0);
+                    
+                    if(x1_reverse){ //nns: reverse direction
+                    	printk("mk_arcade_joystick_rpi: x1 direction reversed\n");
+                    	value = 4096-value; //nns: reverse 12bits value
+                    }
+                    
                     printk("mk_arcade_joystick_rpi: initial x1 value: 0x%04X\n", value);
                 }
             }
@@ -818,6 +896,12 @@ static int __init mk_init(void) {
                     printk("mk_arcade_joystick_rpi: y1 assigned to i2c addr 0x%02X\n", analog_y1_cfg.address[0]);
                 
                 value = i2c_smbus_read_word_swapped(i2c_client_y1, 0);
+                    
+                if(y1_reverse){ //nns: reverse direction
+                	printk("mk_arcade_joystick_rpi: y1 direction reversed\n");
+                  value = 4096-value; //nns: reverse 12bits value
+                }
+                    
                 printk("mk_arcade_joystick_rpi: initial y1 value: 0x%04X\n", value);
             }
             if(analog_x2_cfg.address[0] > 0)
@@ -827,6 +911,12 @@ static int __init mk_init(void) {
                     printk("mk_arcade_joystick_rpi: x2 assigned to i2c addr 0x%02X\n", analog_x2_cfg.address[0]);
 
                 value = i2c_smbus_read_word_swapped(i2c_client_x2, 0);
+                    
+                if(x2_reverse){ //nns: reverse direction
+                	printk("mk_arcade_joystick_rpi: x2 direction reversed\n");
+                  value = 4096-value; //nns: reverse 12bits value
+                }
+                    
                 printk("mk_arcade_joystick_rpi: initial x2 value: 0x%04X\n", value);
             }
             if(analog_y2_cfg.address[0] > 0)
@@ -836,6 +926,12 @@ static int __init mk_init(void) {
                     printk("mk_arcade_joystick_rpi: y2 assigned to i2c addr 0x%02X\n", analog_y2_cfg.address[0]);
                 
                 value = i2c_smbus_read_word_swapped(i2c_client_y2, 0);
+                    
+              if(y2_reverse){ //nns: reverse direction
+              	printk("mk_arcade_joystick_rpi: y2 direction reversed\n");
+                value = 4096-value; //nns: reverse 12bits value
+              }
+                    
                 printk("mk_arcade_joystick_rpi: initial y2 value: 0x%04X\n", value);
 
             }

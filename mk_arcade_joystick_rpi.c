@@ -208,6 +208,10 @@ uint16_t x1_max = 0;
 uint16_t x1_min = 0xFFFF;
 uint16_t y1_max = 0;
 uint16_t y1_min = 0xFFFF;
+uint16_t x2_max = 0;
+uint16_t x2_min = 0xFFFF;
+uint16_t y2_max = 0;
+uint16_t y2_min = 0xFFFF;
 
 bool x1_reverse = false; //nns: x1 reverse direction
 bool y1_reverse = false; //nns: y1 reverse direction
@@ -477,6 +481,15 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data) {
         adc_val = i2c_smbus_read_word_swapped(i2c_client_x2, 0);
         if(x2_reverse){adc_val = 4096 - adc_val;} //nns: reverse 12bits value
         	
+        if(adc_val < x2_min)
+        {
+            x2_min = adc_val;
+        }
+        if(adc_val > x2_max)
+        {
+            x2_max = adc_val;
+        }
+        
         input_report_abs(dev, ABS_RX, adc_val);
     }
     
@@ -485,6 +498,15 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data) {
         adc_val = i2c_smbus_read_word_swapped(i2c_client_y2, 0);
         if(y2_reverse){adc_val = 4096 - adc_val;} //nns: reverse 12bits value
         	
+        if(adc_val < y2_min)
+        {
+            y2_min = adc_val;
+        }
+        if(adc_val > y2_max)
+        {
+            y2_max = adc_val;
+        }
+
         input_report_abs(dev, ABS_RY, adc_val);
     }
     
@@ -880,6 +902,17 @@ static int __init mk_init(void) {
                     printk("mk_arcade_joystick_rpi: x1 assigned to i2c addr 0x%02X\n", analog_x1_cfg.address[0]);
                     
                     value = i2c_smbus_read_word_swapped(i2c_client_x1, 0);
+                    if(value & 0x8000)
+                    {
+                      printk("mk_arcade_joystick_rpi: x1 chip not found\n");
+                      i2c_unregister_device(i2c_client_x1);
+                      i2c_client_x1 = NULL;
+                    }
+                    else
+                    {
+                      printk("mk_arcade_joystick_rpi: initial x1 value: 0x%04X\n", value);
+                    }
+
                     
                     if(x1_reverse){ //nns: reverse direction
                     	printk("mk_arcade_joystick_rpi: x1 direction reversed\n");
@@ -896,6 +929,14 @@ static int __init mk_init(void) {
                     printk("mk_arcade_joystick_rpi: y1 assigned to i2c addr 0x%02X\n", analog_y1_cfg.address[0]);
                 
                 value = i2c_smbus_read_word_swapped(i2c_client_y1, 0);
+                if(value & 0x8000)
+                {
+                  printk("mk_arcade_joystick_rpi: y1 chip not found\n");
+                  i2c_unregister_device(i2c_client_y1);
+                  i2c_client_y1 = NULL;
+                }
+                else
+                  printk("mk_arcade_joystick_rpi: initial y1 value: 0x%04X\n", value);
                     
                 if(y1_reverse){ //nns: reverse direction
                 	printk("mk_arcade_joystick_rpi: y1 direction reversed\n");
@@ -911,6 +952,14 @@ static int __init mk_init(void) {
                     printk("mk_arcade_joystick_rpi: x2 assigned to i2c addr 0x%02X\n", analog_x2_cfg.address[0]);
 
                 value = i2c_smbus_read_word_swapped(i2c_client_x2, 0);
+                if(value & 0x8000)
+                {
+                  printk("mk_arcade_joystick_rpi: x2 chip not found\n");
+                  i2c_unregister_device(i2c_client_x2);
+                  i2c_client_x2 = NULL;
+                }
+                else
+                  printk("mk_arcade_joystick_rpi: initial x2 value: 0x%04X\n", value);
                     
                 if(x2_reverse){ //nns: reverse direction
                 	printk("mk_arcade_joystick_rpi: x2 direction reversed\n");
@@ -926,6 +975,14 @@ static int __init mk_init(void) {
                     printk("mk_arcade_joystick_rpi: y2 assigned to i2c addr 0x%02X\n", analog_y2_cfg.address[0]);
                 
                 value = i2c_smbus_read_word_swapped(i2c_client_y2, 0);
+                if(value & 0x8000)
+                {
+                  printk("mk_arcade_joystick_rpi: y2 chip not found\n");
+                  i2c_unregister_device(i2c_client_y2);
+                  i2c_client_y2 = NULL;
+                }
+                else
+                  printk("mk_arcade_joystick_rpi: initial y2 value: 0x%04X\n", value);
                     
               if(y2_reverse){ //nns: reverse direction
               	printk("mk_arcade_joystick_rpi: y2 direction reversed\n");
@@ -978,10 +1035,19 @@ static void __exit mk_exit(void) {
         printk("mk_arcade_joystick_rpi: y1 max value: 0x%04X\n", y1_max);
     }
     if(i2c_client_x2)
+    {
         i2c_unregister_device(i2c_client_x2);
+        printk("mk_arcade_joystick_rpi: x2 min value: 0x%04X\n", x2_min);
+        printk("mk_arcade_joystick_rpi: x2 max value: 0x%04X\n", x2_max);
+    }
+
     if(i2c_client_y2)
+    {
         i2c_unregister_device(i2c_client_y2);
-    
+        printk("mk_arcade_joystick_rpi: y2 min value: 0x%04X\n", y2_min);
+        printk("mk_arcade_joystick_rpi: y2 max value: 0x%04X\n", y2_max);
+    }
+
     iounmap(gpio);
 }
 

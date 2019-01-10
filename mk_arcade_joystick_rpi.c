@@ -910,16 +910,13 @@ static int __init mk_init(void) {
                     }
                     else
                     {
+	                  if(x1_reverse){ //nns: reverse direction
+	                    printk("mk_arcade_joystick_rpi: x1 direction reversed\n");
+	                    value = 4096-value; //nns: reverse 12bits value
+	                  }
+                    
                       printk("mk_arcade_joystick_rpi: initial x1 value: 0x%04X\n", value);
                     }
-
-                    
-                    if(x1_reverse){ //nns: reverse direction
-                    	printk("mk_arcade_joystick_rpi: x1 direction reversed\n");
-                    	value = 4096-value; //nns: reverse 12bits value
-                    }
-                    
-                    printk("mk_arcade_joystick_rpi: initial x1 value: 0x%04X\n", value);
                 }
             }
             if(analog_y1_cfg.address[0] > 0)
@@ -936,14 +933,15 @@ static int __init mk_init(void) {
                   i2c_client_y1 = NULL;
                 }
                 else
+				{
+	              if(y1_reverse){ //nns: reverse direction
+	                printk("mk_arcade_joystick_rpi: y1 direction reversed\n");
+	                value = 4096-value; //nns: reverse 12bits value
+	              }
+                    
                   printk("mk_arcade_joystick_rpi: initial y1 value: 0x%04X\n", value);
+			    }
                     
-                if(y1_reverse){ //nns: reverse direction
-                	printk("mk_arcade_joystick_rpi: y1 direction reversed\n");
-                  value = 4096-value; //nns: reverse 12bits value
-                }
-                    
-                printk("mk_arcade_joystick_rpi: initial y1 value: 0x%04X\n", value);
             }
             if(analog_x2_cfg.address[0] > 0)
             {
@@ -959,14 +957,15 @@ static int __init mk_init(void) {
                   i2c_client_x2 = NULL;
                 }
                 else
+				{
+	              if(x2_reverse){ //nns: reverse direction
+	                printk("mk_arcade_joystick_rpi: x2 direction reversed\n");
+	                value = 4096-value; //nns: reverse 12bits value
+	              }
+                    
                   printk("mk_arcade_joystick_rpi: initial x2 value: 0x%04X\n", value);
+			    }
                     
-                if(x2_reverse){ //nns: reverse direction
-                	printk("mk_arcade_joystick_rpi: x2 direction reversed\n");
-                  value = 4096-value; //nns: reverse 12bits value
-                }
-                    
-                printk("mk_arcade_joystick_rpi: initial x2 value: 0x%04X\n", value);
             }
             if(analog_y2_cfg.address[0] > 0)
             {
@@ -982,14 +981,15 @@ static int __init mk_init(void) {
                   i2c_client_y2 = NULL;
                 }
                 else
+				{
+	              if(y2_reverse){ //nns: reverse direction
+	                printk("mk_arcade_joystick_rpi: y2 direction reversed\n");
+	                value = 4096-value; //nns: reverse 12bits value
+	              }
+                    
                   printk("mk_arcade_joystick_rpi: initial y2 value: 0x%04X\n", value);
+			    }
                     
-              if(y2_reverse){ //nns: reverse direction
-              	printk("mk_arcade_joystick_rpi: y2 direction reversed\n");
-                value = 4096-value; //nns: reverse 12bits value
-              }
-                    
-                printk("mk_arcade_joystick_rpi: initial y2 value: 0x%04X\n", value);
 
             }
         }

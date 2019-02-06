@@ -46,7 +46,7 @@ MODULE_LICENSE("GPL");
 
 #define MK_MAX_DEVICES		2
 //#define MK_MAX_BUTTONS      13
-#define MK_MAX_BUTTONS      17
+#define MK_MAX_BUTTONS      21
 
 #ifdef RPI2
 #define PERI_BASE        0x3F000000
@@ -273,7 +273,7 @@ static const int mk_arcade_gpio_maps_bplus[] = {11, 5,    6,    13,    19,    26
 static const int mk_arcade_gpio_maps_tft[] = {21, 13,    26,    19,    5,    6,     22, 4, 20, 17, 27,  16, 12, -1, -1, -1, -1};
 
 static const short mk_arcade_gpio_btn[] = {
-    BTN_START, BTN_SELECT, BTN_A, BTN_B, BTN_TR, BTN_Y, BTN_X, BTN_TL, BTN_MODE, BTN_TL2, BTN_TR2, BTN_C, BTN_Z
+    BTN_START, BTN_SELECT, BTN_A, BTN_B, BTN_TR, BTN_Y, BTN_X, BTN_TL, BTN_MODE /*this one can be special*/, BTN_TL2, BTN_TR2, BTN_C, BTN_Z, BTN_TOP, BTN_TOP2, BTN_BASE, BTN_BASE2
 };
 
 static const char *mk_names[] = {

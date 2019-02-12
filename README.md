@@ -45,7 +45,7 @@ UPDATE 0.1.5.9 : Added support for 4 extra GPIO inputs
 
 UPDATE 0.1.5.8 : Added some new parameters to allow inverting of analog inputs
 
-UPDATE 0.1.5.7 : Added MCP3021A i2c support for up to 4 analog inputs
+UPDATE 0.1.5.7 : Added MCP3021 i2c support for up to 4 analog inputs
 
 UPDATE 0.1.5.6 : Added 4 buttons, the ability to use GPIO32 and higher, and hkmode parameter
 

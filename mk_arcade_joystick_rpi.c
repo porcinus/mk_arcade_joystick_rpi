@@ -176,6 +176,39 @@ module_param_array_named(y2dir, analog_y2_direction_cfg.dir, int, &(analog_y2_di
 MODULE_PARM_DESC(y2dir, "y2 adc direction");
 
 
+//i2c ADC
+#define ABS_PARAMS_DEFAULT_X_MIN 374
+#define ABS_PARAMS_DEFAULT_X_MAX 3418
+#define ABS_PARAMS_DEFAULT_X_FUZZ 16
+#define ABS_PARAMS_DEFAULT_X_FLAT 384
+
+#define ABS_PARAMS_DEFAULT_Y_MIN 517
+#define ABS_PARAMS_DEFAULT_Y_MAX 3378
+#define ABS_PARAMS_DEFAULT_Y_FUZZ 16
+#define ABS_PARAMS_DEFAULT_Y_FLAT 384
+
+
+struct analog_abs_params_config { //nns: add analog parameters
+    int abs_params[4];
+    unsigned int nargs;
+};
+
+static struct analog_abs_params_config analog_x1_abs_params_cfg __initdata;
+static struct analog_abs_params_config analog_x2_abs_params_cfg __initdata;
+static struct analog_abs_params_config analog_y1_abs_params_cfg __initdata;
+static struct analog_abs_params_config analog_y2_abs_params_cfg __initdata;
+
+module_param_array_named(x1params, analog_x1_abs_params_cfg.abs_params, int, &(analog_x1_abs_params_cfg.nargs), 0);
+MODULE_PARM_DESC(x1params, "x1 adc abs parameters (min,max,fuzz,flat)");
+
+module_param_array_named(x2params, analog_x2_abs_params_cfg.abs_params, int, &(analog_x2_abs_params_cfg.nargs), 0);
+MODULE_PARM_DESC(x2params, "x2 adc abs parameters (min,max,fuzz,flat)");
+
+module_param_array_named(y1params, analog_y1_abs_params_cfg.abs_params, int, &(analog_y1_abs_params_cfg.nargs), 0);
+MODULE_PARM_DESC(y1params, "y1 adc abs parameters (min,max,fuzz,flat)");
+
+module_param_array_named(y2params, analog_y2_abs_params_cfg.abs_params, int, &(analog_y2_abs_params_cfg.nargs), 0);
+MODULE_PARM_DESC(y2params, "y2 adc abs parameters (min,max,fuzz,flat)");
 
 
 
@@ -217,6 +250,12 @@ bool x1_reverse = false; //nns: x1 reverse direction
 bool y1_reverse = false; //nns: y1 reverse direction
 bool x2_reverse = false; //nns: x2 reverse direction
 bool y2_reverse = false; //nns: y2 reverse direction
+
+struct analog_abs_params_struct
+{
+	int min, max, fuzz, flat;
+	
+} x1_analog_abs_params, x2_analog_abs_params, y1_analog_abs_params, y2_analog_abs_params;
 
 
 enum mk_type {
@@ -704,6 +743,9 @@ nns:
 [  +0.000005] mk_arcade_joystick_rpi: y1 max value: 0x0D32
 */
 
+	//int min, int max, int fuzz, int flat
+	//x1_min, x1_max, x1_fuzz, x1_flat
+	
     //i2c ADC
     if(i2c_client_x1)
         input_set_abs_params(input_dev, ABS_X, 0x176, 0xD5A, 16, 384);//384
@@ -857,6 +899,85 @@ static int __init mk_init(void) {
     if(analog_y2_direction_cfg.nargs > 0){ //if y2dir set
       if(analog_y2_direction_cfg.dir[0]<0){y2_reverse=true;} //nns:direction
 		}
+
+	x1_analog_abs_params.min = ABS_PARAMS_DEFAULT_X_MIN;
+	x1_analog_abs_params.max = ABS_PARAMS_DEFAULT_X_MAX;
+	x1_analog_abs_params.fuzz = ABS_PARAMS_DEFAULT_X_FUZZ;
+	x1_analog_abs_params.flat = ABS_PARAMS_DEFAULT_X_FLAT;
+	if(analog_x1_abs_params_cfg.nargs > 0)//if analog_x1_abs_params_cfg set
+	{
+		x1_analog_abs_params.min = analog_x1_abs_params_cfg.[0];
+		if(analog_x1_abs_params_cfg.nargs > 1)
+		{
+			x1_analog_abs_params.max = analog_x1_abs_params_cfg.[1];
+			if(analog_x1_abs_params_cfg.nargs > 2)
+			{
+				x1_analog_abs_params.fuzz = analog_x1_abs_params_cfg.[2];
+				if(analog_x1_abs_params_cfg.nargs > 3)
+					x1_analog_abs_params.flat = analog_x1_abs_params_cfg.[3];
+			}
+		}
+	}
+	
+	y1_analog_abs_params.min = ABS_PARAMS_DEFAULT_Y_MIN;
+	y1_analog_abs_params.max = ABS_PARAMS_DEFAULT_Y_MAX;
+	y1_analog_abs_params.fuzz = ABS_PARAMS_DEFAULT_Y_FUZZ;
+	y1_analog_abs_params.flat = ABS_PARAMS_DEFAULT_Y_FLAT;
+	if(analog_y1_abs_params_cfg.nargs > 0)//if analog_y1_abs_params_cfg set
+	{
+		y1_analog_abs_params.min = analog_y1_abs_params_cfg.[0];
+		if(analog_y1_abs_params_cfg.nargs > 1)
+		{
+			y1_analog_abs_params.max = analog_y1_abs_params_cfg.[1];
+			if(analog_y1_abs_params_cfg.nargs > 2)
+			{
+				y1_analog_abs_params.fuzz = analog_y1_abs_params_cfg.[2];
+				if(analog_y1_abs_params_cfg.nargs > 3)
+					y1_analog_abs_params.flat = analog_y1_abs_params_cfg.[3];
+			}
+		}
+	}	
+	
+	x2_analog_abs_params.min = ABS_PARAMS_DEFAULT_X_MIN;
+	x2_analog_abs_params.max = ABS_PARAMS_DEFAULT_X_MAX;
+	x2_analog_abs_params.fuzz = ABS_PARAMS_DEFAULT_X_FUZZ;
+	x2_analog_abs_params.flat = ABS_PARAMS_DEFAULT_X_FLAT;
+	if(analog_x2_abs_params_cfg.nargs > 0)//if analog_x2_abs_params_cfg set
+	{
+		x2_analog_abs_params.min = analog_x2_abs_params_cfg.[0];
+		if(analog_x2_abs_params_cfg.nargs > 1)
+		{
+			x2_analog_abs_params.max = analog_x2_abs_params_cfg.[1];
+			if(analog_x2_abs_params_cfg.nargs > 2)
+			{
+				x2_analog_abs_params.fuzz = analog_x2_abs_params_cfg.[2];
+				if(analog_x2_abs_params_cfg.nargs > 3)
+					x2_analog_abs_params.flat = analog_x2_abs_params_cfg.[3];
+			}
+		}
+	}
+	
+	y2_analog_abs_params.min = ABS_PARAMS_DEFAULT_Y_MIN;
+	y2_analog_abs_params.max = ABS_PARAMS_DEFAULT_Y_MAX;
+	y2_analog_abs_params.fuzz = ABS_PARAMS_DEFAULT_Y_FUZZ;
+	y2_analog_abs_params.flat = ABS_PARAMS_DEFAULT_Y_FLAT;
+	if(analog_y2_abs_params_cfg.nargs > 0)//if analog_y2_abs_params_cfg set
+	{
+		y2_analog_abs_params.min = analog_y2_abs_params_cfg.[0];
+		if(analog_y2_abs_params_cfg.nargs > 1)
+		{
+			y2_analog_abs_params.max = analog_y2_abs_params_cfg.[1];
+			if(analog_y2_abs_params_cfg.nargs > 2)
+			{
+				y2_analog_abs_params.fuzz = analog_y2_abs_params_cfg.[2];
+				if(analog_y2_abs_params_cfg.nargs > 3)
+					y2_analog_abs_params.flat = analog_y2_abs_params_cfg.[3];
+			}
+		}
+	}		
+	
+	
+
     
     
     if(i2cbus_cfg.busnum[0] >= 0)

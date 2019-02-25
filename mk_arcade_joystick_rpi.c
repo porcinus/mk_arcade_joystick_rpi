@@ -906,15 +906,15 @@ static int __init mk_init(void) {
 	x1_analog_abs_params.flat = ABS_PARAMS_DEFAULT_X_FLAT;
 	if(analog_x1_abs_params_cfg.nargs > 0)//if analog_x1_abs_params_cfg set
 	{
-		x1_analog_abs_params.min = analog_x1_abs_params_cfg.[0];
+		x1_analog_abs_params.min = analog_x1_abs_params_cfg.abs_params[0];
 		if(analog_x1_abs_params_cfg.nargs > 1)
 		{
-			x1_analog_abs_params.max = analog_x1_abs_params_cfg.[1];
+			x1_analog_abs_params.max = analog_x1_abs_params_cfg.abs_params[1];
 			if(analog_x1_abs_params_cfg.nargs > 2)
 			{
-				x1_analog_abs_params.fuzz = analog_x1_abs_params_cfg.[2];
+				x1_analog_abs_params.fuzz = analog_x1_abs_params_cfg.abs_params[2];
 				if(analog_x1_abs_params_cfg.nargs > 3)
-					x1_analog_abs_params.flat = analog_x1_abs_params_cfg.[3];
+					x1_analog_abs_params.flat = analog_x1_abs_params_cfg.abs_params[3];
 			}
 		}
 	}
@@ -925,15 +925,15 @@ static int __init mk_init(void) {
 	y1_analog_abs_params.flat = ABS_PARAMS_DEFAULT_Y_FLAT;
 	if(analog_y1_abs_params_cfg.nargs > 0)//if analog_y1_abs_params_cfg set
 	{
-		y1_analog_abs_params.min = analog_y1_abs_params_cfg.[0];
+		y1_analog_abs_params.min = analog_y1_abs_params_cfg.abs_params[0];
 		if(analog_y1_abs_params_cfg.nargs > 1)
 		{
-			y1_analog_abs_params.max = analog_y1_abs_params_cfg.[1];
+			y1_analog_abs_params.max = analog_y1_abs_params_cfg.abs_params[1];
 			if(analog_y1_abs_params_cfg.nargs > 2)
 			{
-				y1_analog_abs_params.fuzz = analog_y1_abs_params_cfg.[2];
+				y1_analog_abs_params.fuzz = analog_y1_abs_params_cfg.abs_params[2];
 				if(analog_y1_abs_params_cfg.nargs > 3)
-					y1_analog_abs_params.flat = analog_y1_abs_params_cfg.[3];
+					y1_analog_abs_params.flat = analog_y1_abs_params_cfg.abs_params[3];
 			}
 		}
 	}	
@@ -944,15 +944,15 @@ static int __init mk_init(void) {
 	x2_analog_abs_params.flat = ABS_PARAMS_DEFAULT_X_FLAT;
 	if(analog_x2_abs_params_cfg.nargs > 0)//if analog_x2_abs_params_cfg set
 	{
-		x2_analog_abs_params.min = analog_x2_abs_params_cfg.[0];
+		x2_analog_abs_params.min = analog_x2_abs_params_cfg.abs_params[0];
 		if(analog_x2_abs_params_cfg.nargs > 1)
 		{
-			x2_analog_abs_params.max = analog_x2_abs_params_cfg.[1];
+			x2_analog_abs_params.max = analog_x2_abs_params_cfg.abs_params[1];
 			if(analog_x2_abs_params_cfg.nargs > 2)
 			{
-				x2_analog_abs_params.fuzz = analog_x2_abs_params_cfg.[2];
+				x2_analog_abs_params.fuzz = analog_x2_abs_params_cfg.abs_params[2];
 				if(analog_x2_abs_params_cfg.nargs > 3)
-					x2_analog_abs_params.flat = analog_x2_abs_params_cfg.[3];
+					x2_analog_abs_params.flat = analog_x2_abs_params_cfg.abs_params[3];
 			}
 		}
 	}
@@ -963,15 +963,15 @@ static int __init mk_init(void) {
 	y2_analog_abs_params.flat = ABS_PARAMS_DEFAULT_Y_FLAT;
 	if(analog_y2_abs_params_cfg.nargs > 0)//if analog_y2_abs_params_cfg set
 	{
-		y2_analog_abs_params.min = analog_y2_abs_params_cfg.[0];
+		y2_analog_abs_params.min = analog_y2_abs_params_cfg.abs_params[0];
 		if(analog_y2_abs_params_cfg.nargs > 1)
 		{
-			y2_analog_abs_params.max = analog_y2_abs_params_cfg.[1];
+			y2_analog_abs_params.max = analog_y2_abs_params_cfg.abs_params[1];
 			if(analog_y2_abs_params_cfg.nargs > 2)
 			{
-				y2_analog_abs_params.fuzz = analog_y2_abs_params_cfg.[2];
+				y2_analog_abs_params.fuzz = analog_y2_abs_params_cfg.abs_params[2];
 				if(analog_y2_abs_params_cfg.nargs > 3)
-					y2_analog_abs_params.flat = analog_y2_abs_params_cfg.[3];
+					y2_analog_abs_params.flat = analog_y2_abs_params_cfg.abs_params[3];
 			}
 		}
 	}		

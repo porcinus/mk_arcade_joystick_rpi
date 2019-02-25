@@ -24,9 +24,11 @@ modinfo mk_arcade_joystick_rpi
 
 ### Testing ###
 
-Use the following command to test joysticks inputs :
+Use the following commands to test joysticks inputs :
 ```shell
 jstest /dev/input/js0
+jscal -c /dev/input/js0
+evtest
 ```
 
 # mk_arcade_joystick_rpi #

@@ -6,12 +6,13 @@ sudo dkms remove -m mk_arcade_joystick_rpi -v 0.1.5.7 --all
 sudo dkms remove -m mk_arcade_joystick_rpi -v 0.1.5.8 --all
 sudo dkms remove -m mk_arcade_joystick_rpi -v 0.1.5.9 --all
 sudo dkms remove -m mk_arcade_joystick_rpi -v 0.1.5.10 --all
-sudo mkdir /usr/src/mk_arcade_joystick_rpi-0.1.5.10
-sudo cp -a * /usr/src/mk_arcade_joystick_rpi-0.1.5.10/
+sudo dkms remove -m mk_arcade_joystick_rpi -v 0.1.5.11 --all
+sudo mkdir /usr/src/mk_arcade_joystick_rpi-0.1.5.11
+sudo cp -a * /usr/src/mk_arcade_joystick_rpi-0.1.5.11/
 sudo apt-get install -y --force-yes dkms cpp-4.7 gcc-4.7 joystick raspberrypi-kernel raspberrypi-kernel-headers wiringpi
 echo If you just got a new kernel, you may need to reboot and rerun this script!
-sudo dkms build -m mk_arcade_joystick_rpi -v 0.1.5.10
-sudo dkms install -m mk_arcade_joystick_rpi -v 0.1.5.10 --force
+sudo dkms build -m mk_arcade_joystick_rpi -v 0.1.5.11
+sudo dkms install -m mk_arcade_joystick_rpi -v 0.1.5.11 --force
 
 if grep -q mk_arcade_joystick_rpi /etc/modules; then
 	echo "mk_arcade_joystick_rpi already present in /etc/modules   You may NEED to edit /etc/modules by hand"

@@ -748,9 +748,9 @@ nns:
 	
     //i2c ADC
     if(i2c_client_x1)
-        input_set_abs_params(input_dev, ABS_X, 0x176, 0xD5A, 16, 384);//384
+        input_set_abs_params(input_dev, ABS_X, x1_analog_abs_params.min, x1_analog_abs_params.max, x1_analog_abs_params.fuzz, x1_analog_abs_params.flat);
     if(i2c_client_y1)
-        input_set_abs_params(input_dev, ABS_Y, 0x205, 0xD32, 16, 384);
+        input_set_abs_params(input_dev, ABS_Y, y1_analog_abs_params.min, y1_analog_abs_params.max, y1_analog_abs_params.fuzz, y1_analog_abs_params.flat);
 
 /*
     //i2c ADC
@@ -760,9 +760,9 @@ nns:
         input_set_abs_params(input_dev, ABS_Y, 0x213, 0xD02, 16, 384);
 */
     if(i2c_client_x2)
-        input_set_abs_params(input_dev, ABS_RX, 0x300, 0xB80, 16, 384);
+        input_set_abs_params(input_dev, ABS_RX, x2_analog_abs_params.min, x2_analog_abs_params.max, x2_analog_abs_params.fuzz, x2_analog_abs_params.flat);
     if(i2c_client_y2)
-        input_set_abs_params(input_dev, ABS_RY, 0x300, 0xB80, 16, 384);
+        input_set_abs_params(input_dev, ABS_RY, y2_analog_abs_params.min, y2_analog_abs_params.max, y2_analog_abs_params.fuzz, y2_analog_abs_params.flat);
 
     for (i = 0; i < MK_MAX_BUTTONS - 4; i++)
     {

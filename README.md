@@ -50,6 +50,8 @@ Other versions of mk_arcade_joystick_rpi are fully integrated in the **recalbox*
 
 ## Revisions ##
 
+UPDATE 0.1.5.11 : Fixed support for analog parameters (min, max, fuzz, flat)
+
 UPDATE 0.1.5.10 : Added support for analog parameters (min, max, fuzz, flat)
 
 UPDATE 0.1.5.9 : Added support for 4 extra GPIO inputs

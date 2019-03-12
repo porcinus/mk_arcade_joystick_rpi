@@ -239,12 +239,17 @@ struct i2c_client* i2c_client_x2 = NULL;
 struct i2c_client* i2c_client_y2 = NULL;
 uint16_t x1_max = 0;
 uint16_t x1_min = 0xFFFF;
+uint16_t x1_offset = 0; //nns
 uint16_t y1_max = 0;
 uint16_t y1_min = 0xFFFF;
+uint16_t y1_offset = 0; //nns
 uint16_t x2_max = 0;
 uint16_t x2_min = 0xFFFF;
+uint16_t x2_offset = 0; //nns
 uint16_t y2_max = 0;
 uint16_t y2_min = 0xFFFF;
+uint16_t y2_offset = 0; //nns
+
 
 bool x1_reverse = false; //nns: x1 reverse direction
 bool y1_reverse = false; //nns: y1 reverse direction
@@ -318,6 +323,45 @@ static const short mk_arcade_gpio_btn[] = {
 static const char *mk_names[] = {
     NULL, "GPIO Controller 1", "GPIO Controller 2", "MCP23017 Controller", "GPIO Controller 1" , "GPIO Controller 1", "GPIO Controller 2"
 };
+
+
+/*nns*/
+
+static uint16_t ADC_OffsetCenter(uint16_t ADC_resolution,uint16_t ADC_value,uint16_t ADC_min,uint16_t ADC_max,int16_t ADC_offset){
+	//ADC_resolution=4096;
+	//ADC_min=926;
+	//ADC_max=2543;
+	//ADC_offset=-12;
+	
+	uint16_t ADC_center;
+	int16_t range;
+	int32_t ratio;
+	uint16_t corrected_value;
+	
+	
+	ADC_center=ADC_resolution/2;
+	
+	
+	if(ADC_value<(ADC_center+ADC_offset)){ //value under center offset
+		range=(ADC_center+ADC_offset)-ADC_min;
+		ratio=10000*ADC_center/range; //float workaround
+		corrected_value=(ADC_value-ADC_min)*ratio/10000;
+	}else{ //value over center offset
+		range=ADC_max-(ADC_center+ADC_offset);
+		ratio=10000*ADC_center/range; //float workaround
+		corrected_value=ADC_center+(ADC_value-(ADC_center+ADC_offset))*ratio/10000;
+	}
+
+	if(ADC_value<(ADC_center+ADC_offset) && corrected_value>ADC_center){ //overflow??
+		corrected_value=0;
+	}
+	
+	return corrected_value;
+}
+
+
+
+
 
 /* GPIO UTILS */
 static void setGpioPullUps(uint32_t pullUps, uint32_t pullUpsHigh) {
@@ -495,7 +539,13 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data) {
             x1_max = adc_val;
         }
         
+        
+        adc_val = ADC_OffsetCenter(4096,adc_val,x1_analog_abs_params.min,x1_analog_abs_params.max,x1_offset); //nns: adc value correction
+        
+        
         input_report_abs(dev, ABS_X, adc_val);
+        
+        
     }
     
     if(i2c_client_y1)
@@ -512,7 +562,14 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data) {
             y1_max = adc_val;
         }
 
+
+        adc_val = ADC_OffsetCenter(4096,adc_val,y1_analog_abs_params.min,y1_analog_abs_params.max,y1_offset); //nns: adc value correction
+        
+        
+        
         input_report_abs(dev, ABS_Y, adc_val);
+        
+        
     }
     
     if(i2c_client_x2)
@@ -529,6 +586,7 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data) {
             x2_max = adc_val;
         }
         
+        adc_val = ADC_OffsetCenter(4096,adc_val,x2_analog_abs_params.min,x2_analog_abs_params.max,x2_offset); //nns: adc value correction
         input_report_abs(dev, ABS_RX, adc_val);
     }
     
@@ -546,6 +604,7 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data) {
             y2_max = adc_val;
         }
 
+        adc_val = ADC_OffsetCenter(4096,adc_val,y2_analog_abs_params.min,y2_analog_abs_params.max,y2_offset); //nns: adc value correction
         input_report_abs(dev, ABS_RY, adc_val);
     }
     
@@ -747,22 +806,35 @@ nns:
 	//x1_min, x1_max, x1_fuzz, x1_flat
 	
     //i2c ADC
+    
+    
+    
+    if(i2c_client_x1)
+        input_set_abs_params(input_dev, ABS_X, 0x000, 0xFFF, x1_analog_abs_params.fuzz, x1_analog_abs_params.flat); //nns
+        
+    if(i2c_client_y1)
+        input_set_abs_params(input_dev, ABS_Y, 0x000, 0xFFF, y1_analog_abs_params.fuzz, y1_analog_abs_params.flat); //nns
+        
+    if(i2c_client_x2)
+        input_set_abs_params(input_dev, ABS_RX, 0x000, 0xFFF, x2_analog_abs_params.fuzz, x2_analog_abs_params.flat); //nns
+        
+    if(i2c_client_y2)
+        input_set_abs_params(input_dev, ABS_RY, 0x000, 0xFFF, y2_analog_abs_params.fuzz, y2_analog_abs_params.flat); //nns
+        
+    /*
     if(i2c_client_x1)
         input_set_abs_params(input_dev, ABS_X, x1_analog_abs_params.min, x1_analog_abs_params.max, x1_analog_abs_params.fuzz, x1_analog_abs_params.flat);
+        
     if(i2c_client_y1)
         input_set_abs_params(input_dev, ABS_Y, y1_analog_abs_params.min, y1_analog_abs_params.max, y1_analog_abs_params.fuzz, y1_analog_abs_params.flat);
-
-/*
-    //i2c ADC
-    if(i2c_client_x1)
-        input_set_abs_params(input_dev, ABS_X, 0x1A9, 0xCED, 16, 384);//384
-    if(i2c_client_y1)
-        input_set_abs_params(input_dev, ABS_Y, 0x213, 0xD02, 16, 384);
-*/
+        
     if(i2c_client_x2)
         input_set_abs_params(input_dev, ABS_RX, x2_analog_abs_params.min, x2_analog_abs_params.max, x2_analog_abs_params.fuzz, x2_analog_abs_params.flat);
+        
     if(i2c_client_y2)
         input_set_abs_params(input_dev, ABS_RY, y2_analog_abs_params.min, y2_analog_abs_params.max, y2_analog_abs_params.fuzz, y2_analog_abs_params.flat);
+        */
+
 
     for (i = 0; i < MK_MAX_BUTTONS - 4; i++)
     {
@@ -1036,6 +1108,8 @@ static int __init mk_init(void) {
 	                    value = 4096-value; //nns: reverse 12bits value
 	                  }
                     
+                    x1_offset = value-2047; //nns: center offset
+                    
                       printk("mk_arcade_joystick_rpi: initial x1 value: 0x%04X\n", value);
                     }
                 }
@@ -1059,6 +1133,7 @@ static int __init mk_init(void) {
 	                printk("mk_arcade_joystick_rpi: y1 direction reversed\n");
 	                value = 4096-value; //nns: reverse 12bits value
 	              }
+                    y1_offset = value-2047; //nns: center offset
                     
                   printk("mk_arcade_joystick_rpi: initial y1 value: 0x%04X\n", value);
 			    }
@@ -1084,6 +1159,8 @@ static int __init mk_init(void) {
 	                value = 4096-value; //nns: reverse 12bits value
 	              }
                     
+                    x2_offset = value-2047; //nns: center offset
+                    
                   printk("mk_arcade_joystick_rpi: initial x2 value: 0x%04X\n", value);
 			    }
                     
@@ -1107,6 +1184,8 @@ static int __init mk_init(void) {
 	                printk("mk_arcade_joystick_rpi: y2 direction reversed\n");
 	                value = 4096-value; //nns: reverse 12bits value
 	              }
+	              
+                    y2_offset = value-2047; //nns: center offset
                     
                   printk("mk_arcade_joystick_rpi: initial y2 value: 0x%04X\n", value);
 			    }

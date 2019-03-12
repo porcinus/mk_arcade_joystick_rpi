@@ -352,6 +352,10 @@ static uint16_t ADC_OffsetCenter(uint16_t ADC_resolution,uint16_t ADC_value,uint
 		corrected_value=ADC_center+(ADC_value-(ADC_center+ADC_offset))*ratio/10000;
 	}
 
+	if(ADC_value<(ADC_center+ADC_offset) && corrected_value>ADC_center){ //overflow??
+		corrected_value=0;
+	}
+	
 	return corrected_value;
 }
 

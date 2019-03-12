@@ -159,8 +159,8 @@ struct auto_center_config {
 
 static struct auto_center_config auto_center_cfg __initdata;
 
-module_param_array_named(auto_center, auto_center_cfg.auto_center, int, &(auto_center_cfg.nargs), 0);
-MODULE_PARM_DESC(auto_center, "Use auto centering (1=yes, 0=no)");
+module_param_array_named(auto_center_analog, auto_center_cfg.auto_center, int, &(auto_center_cfg.nargs), 0);
+MODULE_PARM_DESC(auto_center_analog, "Use auto centering for analog sticks (1=yes, 0=no)");
 
 struct analog_direction_config { //nns: add analog direction
     int dir[1];
@@ -264,6 +264,7 @@ bool x1_reverse = false; //nns: x1 reverse direction
 bool y1_reverse = false; //nns: y1 reverse direction
 bool x2_reverse = false; //nns: x2 reverse direction
 bool y2_reverse = false; //nns: y2 reverse direction
+bool auto_center = false; //nns: x1 reverse direction
 
 struct analog_abs_params_struct
 {
@@ -965,7 +966,14 @@ static int __init mk_init(void) {
     if(analog_y2_cfg.nargs == 0) //if analog input i2c addr was not defined
         analog_y2_cfg.address[0] = 0; //default to not using it
     
-    
+
+    if(auto_center_cfg.nargs > 0){ //if x1dir set
+        if(auto_center_cfg.auto_center[0])
+            auto_center = true;
+        else
+            auto_center = false;
+    }
+
     
     if(analog_x1_direction_cfg.nargs > 0){ //if x1dir set
     	if(analog_x1_direction_cfg.dir[0]<0){x1_reverse=true;} //nns:direction

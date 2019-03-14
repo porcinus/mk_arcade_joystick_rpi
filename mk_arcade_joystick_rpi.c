@@ -152,6 +152,15 @@ MODULE_PARM_DESC(x2addr, "I2C address of x2 adc MCP3021A chip");
 module_param_array_named(y2addr, analog_y2_cfg.address, int, &(analog_y2_cfg.nargs), 0);
 MODULE_PARM_DESC(y2addr, "I2C address of y2 adc MCP3021A chip");
 
+struct auto_center_config {
+    int auto_center[1];
+    unsigned int nargs;
+};
+
+static struct auto_center_config auto_center_cfg __initdata;
+
+module_param_array_named(auto_center_analog, auto_center_cfg.auto_center, int, &(auto_center_cfg.nargs), 0);
+MODULE_PARM_DESC(auto_center_analog, "Use auto centering for analog sticks (1=yes, 0=no)");
 
 struct analog_direction_config { //nns: add analog direction
     int dir[1];
@@ -255,6 +264,7 @@ bool x1_reverse = false; //nns: x1 reverse direction
 bool y1_reverse = false; //nns: y1 reverse direction
 bool x2_reverse = false; //nns: x2 reverse direction
 bool y2_reverse = false; //nns: y2 reverse direction
+bool auto_center = false; //nns: x1 reverse direction
 
 struct analog_abs_params_struct
 {
@@ -539,13 +549,10 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data) {
             x1_max = adc_val;
         }
         
-        
-        adc_val = ADC_OffsetCenter(4096,adc_val,x1_analog_abs_params.min,x1_analog_abs_params.max,x1_offset); //nns: adc value correction
-        
+        if(auto_center)
+            adc_val = ADC_OffsetCenter(4096,adc_val,x1_analog_abs_params.min,x1_analog_abs_params.max,x1_offset); //nns: adc value correction
         
         input_report_abs(dev, ABS_X, adc_val);
-        
-        
     }
     
     if(i2c_client_y1)
@@ -562,10 +569,8 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data) {
             y1_max = adc_val;
         }
 
-
-        adc_val = ADC_OffsetCenter(4096,adc_val,y1_analog_abs_params.min,y1_analog_abs_params.max,y1_offset); //nns: adc value correction
-        
-        
+        if(auto_center)
+            adc_val = ADC_OffsetCenter(4096,adc_val,y1_analog_abs_params.min,y1_analog_abs_params.max,y1_offset); //nns: adc value correction
         
         input_report_abs(dev, ABS_Y, adc_val);
         
@@ -586,7 +591,9 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data) {
             x2_max = adc_val;
         }
         
-        adc_val = ADC_OffsetCenter(4096,adc_val,x2_analog_abs_params.min,x2_analog_abs_params.max,x2_offset); //nns: adc value correction
+        if(auto_center)
+            adc_val = ADC_OffsetCenter(4096,adc_val,x2_analog_abs_params.min,x2_analog_abs_params.max,x2_offset); //nns: adc value correction
+        
         input_report_abs(dev, ABS_RX, adc_val);
     }
     
@@ -604,7 +611,9 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data) {
             y2_max = adc_val;
         }
 
-        adc_val = ADC_OffsetCenter(4096,adc_val,y2_analog_abs_params.min,y2_analog_abs_params.max,y2_offset); //nns: adc value correction
+        if(auto_center)
+            adc_val = ADC_OffsetCenter(4096,adc_val,y2_analog_abs_params.min,y2_analog_abs_params.max,y2_offset); //nns: adc value correction
+        
         input_report_abs(dev, ABS_RY, adc_val);
     }
     
@@ -809,31 +818,34 @@ nns:
     
     
     
-    if(i2c_client_x1)
-        input_set_abs_params(input_dev, ABS_X, 0x000, 0xFFF, x1_analog_abs_params.fuzz, x1_analog_abs_params.flat); //nns
+    if(auto_center)
+    {
+        if(i2c_client_x1)
+            input_set_abs_params(input_dev, ABS_X, 0x000, 0xFFF, x1_analog_abs_params.fuzz, x1_analog_abs_params.flat); //nns
         
-    if(i2c_client_y1)
-        input_set_abs_params(input_dev, ABS_Y, 0x000, 0xFFF, y1_analog_abs_params.fuzz, y1_analog_abs_params.flat); //nns
+        if(i2c_client_y1)
+            input_set_abs_params(input_dev, ABS_Y, 0x000, 0xFFF, y1_analog_abs_params.fuzz, y1_analog_abs_params.flat); //nns
         
-    if(i2c_client_x2)
-        input_set_abs_params(input_dev, ABS_RX, 0x000, 0xFFF, x2_analog_abs_params.fuzz, x2_analog_abs_params.flat); //nns
+        if(i2c_client_x2)
+            input_set_abs_params(input_dev, ABS_RX, 0x000, 0xFFF, x2_analog_abs_params.fuzz, x2_analog_abs_params.flat); //nns
         
-    if(i2c_client_y2)
-        input_set_abs_params(input_dev, ABS_RY, 0x000, 0xFFF, y2_analog_abs_params.fuzz, y2_analog_abs_params.flat); //nns
+        if(i2c_client_y2)
+            input_set_abs_params(input_dev, ABS_RY, 0x000, 0xFFF, y2_analog_abs_params.fuzz, y2_analog_abs_params.flat); //nns
+    }
+    else
+    {
+        if(i2c_client_x1)
+            input_set_abs_params(input_dev, ABS_X, x1_analog_abs_params.min, x1_analog_abs_params.max, x1_analog_abs_params.fuzz, x1_analog_abs_params.flat);
         
-    /*
-    if(i2c_client_x1)
-        input_set_abs_params(input_dev, ABS_X, x1_analog_abs_params.min, x1_analog_abs_params.max, x1_analog_abs_params.fuzz, x1_analog_abs_params.flat);
+        if(i2c_client_y1)
+            input_set_abs_params(input_dev, ABS_Y, y1_analog_abs_params.min, y1_analog_abs_params.max, y1_analog_abs_params.fuzz, y1_analog_abs_params.flat);
         
-    if(i2c_client_y1)
-        input_set_abs_params(input_dev, ABS_Y, y1_analog_abs_params.min, y1_analog_abs_params.max, y1_analog_abs_params.fuzz, y1_analog_abs_params.flat);
+        if(i2c_client_x2)
+            input_set_abs_params(input_dev, ABS_RX, x2_analog_abs_params.min, x2_analog_abs_params.max, x2_analog_abs_params.fuzz, x2_analog_abs_params.flat);
         
-    if(i2c_client_x2)
-        input_set_abs_params(input_dev, ABS_RX, x2_analog_abs_params.min, x2_analog_abs_params.max, x2_analog_abs_params.fuzz, x2_analog_abs_params.flat);
-        
-    if(i2c_client_y2)
-        input_set_abs_params(input_dev, ABS_RY, y2_analog_abs_params.min, y2_analog_abs_params.max, y2_analog_abs_params.fuzz, y2_analog_abs_params.flat);
-        */
+        if(i2c_client_y2)
+            input_set_abs_params(input_dev, ABS_RY, y2_analog_abs_params.min, y2_analog_abs_params.max, y2_analog_abs_params.fuzz, y2_analog_abs_params.flat);
+    }
 
 
     for (i = 0; i < MK_MAX_BUTTONS - 4; i++)
@@ -954,7 +966,14 @@ static int __init mk_init(void) {
     if(analog_y2_cfg.nargs == 0) //if analog input i2c addr was not defined
         analog_y2_cfg.address[0] = 0; //default to not using it
     
-    
+
+    if(auto_center_cfg.nargs > 0){ //if x1dir set
+        if(auto_center_cfg.auto_center[0])
+            auto_center = true;
+        else
+            auto_center = false;
+    }
+
     
     if(analog_x1_direction_cfg.nargs > 0){ //if x1dir set
     	if(analog_x1_direction_cfg.dir[0]<0){x1_reverse=true;} //nns:direction

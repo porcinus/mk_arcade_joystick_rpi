@@ -334,7 +334,7 @@ static int16_t ADC_OffsetCenter(uint16_t adc_resolution,uint16_t adc_value,uint1
 		}else{corrected_value=adc_value;} //range=0, setting problems?
 	}
 	
-	if(adc_value<0){corrected_value=0;}else if(adc_value>4095){corrected_value=4095;} //constrain computed value to 12bits value
+	if(corrected_value<0){corrected_value=0;}else if(corrected_value>4095){corrected_value=4095;} //constrain computed value to 12bits value
 	return corrected_value;
 }
 

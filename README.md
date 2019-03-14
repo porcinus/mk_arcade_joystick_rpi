@@ -49,7 +49,10 @@ Other versions of mk_arcade_joystick_rpi are fully integrated in the **recalbox*
 ** Please see the [Recalbox mk_arcade_joystick_rpi](https://github.com/recalbox/mk_arcade_joystick_rpi/) repository for more info**
 
 ## Revisions ##
-
+UPDATE 0.1.5.12 : Added support for auto center detection
+                  New I2C device handling (to skip devices if i2c is busy)
+                  Bug fixes
+                  
 UPDATE 0.1.5.11 : Fixed support for analog parameters (min, max, fuzz, flat)
 
 UPDATE 0.1.5.10 : Added support for analog parameters (min, max, fuzz, flat)

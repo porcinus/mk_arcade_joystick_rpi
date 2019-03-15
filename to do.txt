@@ -1,0 +1,3 @@
+ADC_OffsetCenter() : constrain corrected value for 0-4095 to 1-4094 to fix Reicast analog overflow when using evdev.
+
+

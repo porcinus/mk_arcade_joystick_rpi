@@ -186,6 +186,16 @@ MODULE_PARM_DESC(x2dir, "X2 analog direction");
 module_param_array_named(y2dir, analog_y2_direction_cfg.dir, int, &(analog_y2_direction_cfg.nargs), 0);
 MODULE_PARM_DESC(y2dir, "Y2 analog direction");
 
+struct debug_config { //nns: add debug
+	int debug[1];
+	unsigned int nargs;
+};
+
+static struct debug_config debug_config_cfg __initdata;
+module_param_array_named(debug, debug_config_cfg.debug, int, &(debug_config_cfg.nargs), 0);
+MODULE_PARM_DESC(debug, "Debug stuff");
+bool debug_mode=false;
+
 
 //i2c ADC
 #define ABS_PARAMS_DEFAULT_X_MIN 374
@@ -319,7 +329,6 @@ static int16_t ADC_OffsetCenter(uint16_t adc_resolution,uint16_t adc_value,uint1
 	int16_t corrected_value;
 	
 	adc_center=adc_resolution/2;
-	
 	if(adc_value<(adc_center+adc_offset)){ //value under center offset
 		range=(adc_center+adc_offset)-adc_min;
 		if(range!=0){ //to avoid divide by 0
@@ -334,7 +343,7 @@ static int16_t ADC_OffsetCenter(uint16_t adc_resolution,uint16_t adc_value,uint1
 		}else{corrected_value=adc_value;} //range=0, setting problems?
 	}
 	
-	if(corrected_value<0){corrected_value=0;}else if(corrected_value>4095){corrected_value=4095;} //constrain computed value to 12bits value
+	if(corrected_value<1){corrected_value=1;}else if(corrected_value>4094){corrected_value=4094;} //constrain computed value to 12bits value + fix for Reicast
 	return corrected_value;
 }
 
@@ -458,7 +467,7 @@ static void mk_gpio_read_packet(struct mk_pad * pad, unsigned char *data){
 static void mk_input_report(struct mk_pad * pad, unsigned char * data){
 	struct input_dev * dev = pad->dev;
 	int j;
-	int16_t adc_val = 0;
+	int16_t adc_val = 2048;
 	uint8_t buf[2];
 	
 	if(i2c_client_x1){ //if using analog, then the DPAD is ABS_HAT0X
@@ -481,8 +490,8 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data){
 			if(adc_val > x1_max){x1_max = adc_val;}
 			if(auto_center){adc_val = ADC_OffsetCenter(4096,adc_val,x1_analog_abs_params.min,x1_analog_abs_params.max,x1_offset);} //nns: adc value correction
 			input_report_abs(dev, ABS_X, adc_val);
-		}else{
-			printk("mk_arcade_joystick_rpi: failed to read analog X1\n");
+		}else if(debug_mode){
+			printk("mk_arcade_joystick_rpi: failed to read analog X1, returned %i\n",-adc_val);
 		}
 	}
 	
@@ -494,8 +503,8 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data){
 			if(adc_val > y1_max){y1_max = adc_val;}
 			if(auto_center){adc_val = ADC_OffsetCenter(4096,adc_val,y1_analog_abs_params.min,y1_analog_abs_params.max,y1_offset);} //nns: adc value correction
 			input_report_abs(dev, ABS_Y, adc_val);
-		}else{
-			printk("mk_arcade_joystick_rpi: failed to read analog Y1\n");
+		}else if(debug_mode){
+			printk("mk_arcade_joystick_rpi: failed to read analog Y1, returned %i\n",-adc_val);
 		}
 	}
 	
@@ -507,8 +516,8 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data){
 			if(adc_val > x2_max){x2_max = adc_val;}
 			if(auto_center){adc_val = ADC_OffsetCenter(4096,adc_val,x2_analog_abs_params.min,x2_analog_abs_params.max,x2_offset);} //nns: adc value correction
 			input_report_abs(dev, ABS_RX, adc_val);
-		}else{
-			printk("mk_arcade_joystick_rpi: failed to read analog X2\n");
+		}else if(debug_mode){
+			printk("mk_arcade_joystick_rpi: failed to read analog X2, returned %i\n",-adc_val);
 		}
 	}
 	
@@ -520,8 +529,8 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data){
 			if(adc_val > y2_max){y2_max = adc_val;}
 			if(auto_center){adc_val = ADC_OffsetCenter(4096,adc_val,y2_analog_abs_params.min,y2_analog_abs_params.max,y2_offset);} //nns: adc value correction
 			input_report_abs(dev, ABS_RY, adc_val);
-		}else{
-			printk("mk_arcade_joystick_rpi: failed to read analog Y2\n");
+		}else if(debug_mode){
+			printk("mk_arcade_joystick_rpi: failed to read analog Y2, returned %i\n",-adc_val);
 		}
 	}
 	
@@ -637,6 +646,8 @@ static int __init mk_setup_pad(struct mk *mk, int idx, int pad_type_arg){
 	pad->type = pad_type;
 	snprintf(pad->phys, sizeof (pad->phys), "input%d", idx);
 	
+	if(debug_mode){pr_err("Running in Debug mode\n");}
+
 	input_dev->name = mk_names[pad_type];
 	input_dev->phys = pad->phys;
 	input_dev->id.bustype = BUS_PARPORT;
@@ -800,6 +811,10 @@ static int __init mk_init(void){
 	if((gpio = ioremap(GPIO_BASE, 0xB0)) == NULL){
 		pr_err("io remap failed\n");
 		return -EBUSY;
+	}
+	
+	if(debug_config_cfg.nargs > 0){ //if hkmode was not defined
+		if(debug_config_cfg.debug[0]>0){debug_mode=true;} //enable debug mode
 	}
 	
 	if(hkmode_cfg.nargs == 0){ //if hkmode was not defined

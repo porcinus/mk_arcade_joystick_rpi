@@ -347,6 +347,14 @@ static int16_t ADC_OffsetCenter(uint16_t adc_resolution,uint16_t adc_value,uint1
 	return corrected_value;
 }
 
+static int16_t ADC_Deadzone(uint16_t adc_resolution,uint16_t adc_value,uint16_t flat){
+	int16_t adc_center;
+	adc_center=adc_resolution/2;
+	if(adc_value>adc_center-flat&&adc_value<adc_center+flat){adc_value=adc_center;} //apply flat value to adc value
+	return adc_value;
+}
+
+
 
 /* GPIO UTILS */
 static void setGpioPullUps(uint32_t pullUps, uint32_t pullUpsHigh){
@@ -489,6 +497,7 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data){
 			if(adc_val < x1_min){x1_min = adc_val;}
 			if(adc_val > x1_max){x1_max = adc_val;}
 			if(auto_center){adc_val = ADC_OffsetCenter(4096,adc_val,x1_analog_abs_params.min,x1_analog_abs_params.max,x1_offset);} //nns: adc value correction
+			adc_val = ADC_Deadzone(4096,adc_val,x1_analog_abs_params.flat); //apply flat value to adc value
 			input_report_abs(dev, ABS_X, adc_val);
 		}else if(debug_mode){
 			printk("mk_arcade_joystick_rpi: failed to read analog X1, returned %i\n",-adc_val);
@@ -502,6 +511,7 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data){
 			if(adc_val < y1_min){y1_min = adc_val;}
 			if(adc_val > y1_max){y1_max = adc_val;}
 			if(auto_center){adc_val = ADC_OffsetCenter(4096,adc_val,y1_analog_abs_params.min,y1_analog_abs_params.max,y1_offset);} //nns: adc value correction
+			adc_val = ADC_Deadzone(4096,adc_val,y1_analog_abs_params.flat); //apply flat value to adc value
 			input_report_abs(dev, ABS_Y, adc_val);
 		}else if(debug_mode){
 			printk("mk_arcade_joystick_rpi: failed to read analog Y1, returned %i\n",-adc_val);
@@ -515,6 +525,7 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data){
 			if(adc_val < x2_min){x2_min = adc_val;}
 			if(adc_val > x2_max){x2_max = adc_val;}
 			if(auto_center){adc_val = ADC_OffsetCenter(4096,adc_val,x2_analog_abs_params.min,x2_analog_abs_params.max,x2_offset);} //nns: adc value correction
+			adc_val = ADC_Deadzone(4096,adc_val,x2_analog_abs_params.flat); //apply flat value to adc value
 			input_report_abs(dev, ABS_RX, adc_val);
 		}else if(debug_mode){
 			printk("mk_arcade_joystick_rpi: failed to read analog X2, returned %i\n",-adc_val);
@@ -528,6 +539,7 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data){
 			if(adc_val < y2_min){y2_min = adc_val;}
 			if(adc_val > y2_max){y2_max = adc_val;}
 			if(auto_center){adc_val = ADC_OffsetCenter(4096,adc_val,y2_analog_abs_params.min,y2_analog_abs_params.max,y2_offset);} //nns: adc value correction
+			adc_val = ADC_Deadzone(4096,adc_val,y2_analog_abs_params.flat); //apply flat value to adc value
 			input_report_abs(dev, ABS_RY, adc_val);
 		}else if(debug_mode){
 			printk("mk_arcade_joystick_rpi: failed to read analog Y2, returned %i\n",-adc_val);

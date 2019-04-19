@@ -379,7 +379,7 @@ static int16_t ADS1015_read(const struct i2c_client *client,uint16_t axis){ //ba
 	int16_t value=0; //used variables
 	int16_t ain=ads1015_lookup[axis]; //get ain id
 	if(ain<0||ain>3){return -1;} //fail: ain oob, return -1
-	i2c_smbus_write_word_swapped(client,0x01,0x85E3|ads1015_ain[ain]); //default config but 3300sps
+	i2c_smbus_write_word_swapped(client,0x01,0x83E3|ads1015_ain[ain]); //default config but +-4.096v FSR and 3300SPS
 	udelay(450); //wait 450us for conversion, 390us sould be enough in worst case but +60us add a extra security
 	value=i2c_smbus_read_word_swapped(client,0); //read value
 	if(value>=0){ //success

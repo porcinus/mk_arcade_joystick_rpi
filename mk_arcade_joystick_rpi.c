@@ -218,7 +218,7 @@ bool debug_mode=false;
 #define ABS_PARAMS_DEFAULT_Y_FLAT 384
 
 
-struct analog_abs_params_config { //nns: add analog parameters
+struct analog_abs_params_config { //add analog parameters
     int abs_params[4];
     unsigned int nargs;
 };
@@ -264,16 +264,16 @@ struct i2c_client* i2c_client_x2 = NULL;
 struct i2c_client* i2c_client_y2 = NULL;
 uint16_t x1_max = 0;
 uint16_t x1_min = 0xFFFF;
-uint16_t x1_offset = 2048; //nns
+uint16_t x1_offset = 2048; //nns: use for analog center offcenter
 uint16_t y1_max = 0;
 uint16_t y1_min = 0xFFFF;
-uint16_t y1_offset = 2048; //nns
+uint16_t y1_offset = 2048; //nns: use for analog center offcenter
 uint16_t x2_max = 0;
 uint16_t x2_min = 0xFFFF;
-uint16_t x2_offset = 2048; //nns
+uint16_t x2_offset = 2048; //nns: use for analog center offcenter
 uint16_t y2_max = 0;
 uint16_t y2_min = 0xFFFF;
-uint16_t y2_offset = 2048; //nns
+uint16_t y2_offset = 2048; //nns: use for analog center offcenter
 
 bool x1_reverse = false; //nns: x1 reverse direction
 bool y1_reverse = false; //nns: y1 reverse direction
@@ -287,8 +287,8 @@ bool x2_enable = false; //nns: x2 enabled?
 bool y2_enable = false; //nns: y2 enabled?
 
 bool ads1015_enable = false; //nns: ads1015 enabled?
-int ads1015_lookup[] = {-1,-1,-1,-1}; //x1,y1,x2,y2 lookup table
-uint8_t ads1015_ain[] = {0x40,0x50,0x60,0x70}; //ain0,ain1,ain2,ain3 value for bitwise operation
+int ads1015_lookup[] = {-1,-1,-1,-1}; //ads1015 ain x1,y1,x2,y2 lookup table
+uint16_t ads1015_ain[] = {0x4000,0x5000,0x6000,0x7000}; //ain0,ain1,ain2,ain3 value for bitwise operation
 
 
 struct analog_abs_params_struct {int min, max, fuzz, flat;} x1_analog_abs_params, x2_analog_abs_params, y1_analog_abs_params, y2_analog_abs_params;
@@ -348,12 +348,8 @@ static const char *mk_names[] = {NULL, "GPIO Controller 1", "GPIO Controller 2",
 
 
 static int16_t ADC_OffsetCenter(uint16_t adc_resolution,uint16_t adc_value,uint16_t adc_min,uint16_t adc_max,int16_t adc_offset){
-	int16_t adc_center;
-	int16_t range;
-	int32_t ratio;
-	int16_t corrected_value;
-	
-	adc_center=adc_resolution/2;
+	int16_t adc_center; int16_t range; int32_t ratio; int16_t corrected_value; //used variables
+	adc_center=adc_resolution/2; //center value, 2048 for 12bits
 	if(adc_value<(adc_center+adc_offset)){ //value under center offset
 		range=(adc_center+adc_offset)-adc_min;
 		if(range!=0){ //to avoid divide by 0
@@ -368,31 +364,28 @@ static int16_t ADC_OffsetCenter(uint16_t adc_resolution,uint16_t adc_value,uint1
 		}else{corrected_value=adc_value;} //range=0, setting problems?
 	}
 	
-	if(corrected_value<1){corrected_value=1;}else if(corrected_value>4094){corrected_value=4094;} //constrain computed value to 12bits value + fix for Reicast
+	if(corrected_value<1){corrected_value=1;}else if(corrected_value>4094){corrected_value=4094;} //constrain computed value to 12bits value + fix for Reicast overflow
 	return corrected_value;
 }
 
 static int16_t ADC_Deadzone(uint16_t adc_value,uint16_t min,uint16_t max,uint16_t flat){
-	int16_t adc_center;
-	adc_center=(max+min)/2;
+	int16_t adc_center; //used variables
+	adc_center=(max+min)/2; //center value, 2048 for 12bits
 	if(adc_value>adc_center-flat&&adc_value<adc_center+flat){adc_value=adc_center;} //apply flat value to adc value
 	return adc_value;
 }
 
-static int16_t ADS1015_read(const struct i2c_client *client,uint16_t axis){
-	int16_t value=0;
-	int16_t ain=ads1015_lookup[axis];
+static int16_t ADS1015_read(const struct i2c_client *client,uint16_t axis){ //based on https://github.com/torvalds/linux/blob/master/drivers/hwmon/ads1015.c
+	int16_t value=0; //used variables
+	int16_t ain=ads1015_lookup[axis]; //get ain id
 	if(ain<0||ain>3){return -1;} //fail: ain oob, return -1
-	i2c_smbus_write_byte(client,0x01); //enter config register
-	i2c_smbus_write_byte(client,0x85|ads1015_ain[ain]); //send config byte 1
-	i2c_smbus_write_byte(client,0xE3); //send config byte 2
-	udelay(400); //wait 400us for conversion
-	i2c_smbus_write_byte(client,0x00); //enter conversion register
-	value=i2c_smbus_read_word_data(client,0); //read value
+	i2c_smbus_write_word_swapped(client,0x01,0x85E3|ads1015_ain[ain]); //default config but 3300sps
+	udelay(450); //wait 450us for conversion, 390us sould be enough in worst case but +60us add a extra security
+	value=i2c_smbus_read_word_swapped(client,0); //read value
 	if(value>=0){ //success
 		value=value>>4; //shift bits to get 12bits value
 		if(value<=0xFFF){ //valid 12bit range
-			return value; //shift bits to get 12bits value
+			return value; //return adc result
 		}else{return -1;} //invalid range
 	}else{return value;} //fail: return i2c error
 }
@@ -515,92 +508,75 @@ static void mk_gpio_read_packet(struct mk_pad * pad, unsigned char *data){
 
 static void mk_input_report(struct mk_pad * pad, unsigned char * data){
 	struct input_dev * dev = pad->dev;
-	int j;
-	int16_t adc_val = 2048;
-	uint8_t buf[2];
+	int j; //gpio maps loop
+	int16_t adc_val = 2048; //security if something goes wrong
 	
-	if(x1_enable){ //if using analog, then the DPAD is ABS_HAT0X
-		input_report_abs(dev, ABS_HAT0X, !data[2]-!data[3]);
-	}else{
-		input_report_abs(dev, ABS_X, !data[2]-!data[3]);
-	}
+	if(x1_enable){ //if using analog
+		input_report_abs(dev, ABS_HAT0X, !data[2]-!data[3]); //DPAD is ABS_HAT0X
+	}else{input_report_abs(dev, ABS_X, !data[2]-!data[3]);} //DPAD is ABS_X
 	
-	if(y1_enable){ //if using analog, then the DPAD is ABS_HAT0Y
-		input_report_abs(dev, ABS_HAT0Y, !data[0]-!data[1]);
-	}else{
-		input_report_abs(dev, ABS_Y, !data[0]-!data[1]);
-	}
+	if(y1_enable){ //if using analog
+		input_report_abs(dev, ABS_HAT0Y, !data[0]-!data[1]); //DPAD is ABS_HAT0Y
+	}else{input_report_abs(dev, ABS_Y, !data[0]-!data[1]);} //DPAD is ABS_Y
 	
 	if(x1_enable){
 		if(ads1015_enable){adc_val = ADS1015_read(i2c_client_x1,0); //ads1015
 		}else{adc_val = i2c_smbus_read_word_swapped(i2c_client_x1,0);} //mcp3021
-		
 		if(adc_val>=0){
 			if(x1_reverse){adc_val = 4096 - adc_val;} //nns: reverse 12bits value
-			if(adc_val < x1_min){x1_min = adc_val;}
-			if(adc_val > x1_max){x1_max = adc_val;}
+			if(adc_val < x1_min){x1_min = adc_val;} //update x1 analog min value
+			if(adc_val > x1_max){x1_max = adc_val;} //update x1 analog max value
 			if(auto_center){ //nns: adc value correction
-				adc_val = ADC_OffsetCenter(4096,adc_val,x1_analog_abs_params.min,x1_analog_abs_params.max,x1_offset);
+				adc_val = ADC_OffsetCenter(4096,adc_val,x1_analog_abs_params.min,x1_analog_abs_params.max,x1_offset); //re-center adc value
 				adc_val = ADC_Deadzone(adc_val,0x000,0xFFF,x1_analog_abs_params.flat); //apply flat value to adc value
 			}else{adc_val = ADC_Deadzone(adc_val,x1_analog_abs_params.min,x1_analog_abs_params.max,x1_analog_abs_params.flat);} //apply flat value to adc value using min and max value of the axis
 			input_report_abs(dev, ABS_X, adc_val);
-		}else if(debug_mode){
-			printk("mk_arcade_joystick_rpi: failed to read analog X1, returned %i\n",adc_val);
-		}
+		}else if(debug_mode){printk("mk_arcade_joystick_rpi: failed to read analog X1, returned %i\n",adc_val);} //nns: debug
 	}
 	
 	if(y1_enable){
 		if(ads1015_enable){adc_val = ADS1015_read(i2c_client_x1,1); //ads1015
 		}else{adc_val = i2c_smbus_read_word_swapped(i2c_client_y1,0);} //mcp3021
-		
 		if(adc_val>=0){
 			if(y1_reverse){adc_val = 4096 - adc_val;} //nns: reverse 12bits value
-			if(adc_val < y1_min){y1_min = adc_val;}
-			if(adc_val > y1_max){y1_max = adc_val;}
+			if(adc_val < y1_min){y1_min = adc_val;} //update y1 analog min value
+			if(adc_val > y1_max){y1_max = adc_val;} //update y1 analog max value
 			if(auto_center){ //nns: adc value correction
-				adc_val = ADC_OffsetCenter(4096,adc_val,y1_analog_abs_params.min,y1_analog_abs_params.max,y1_offset);
+				adc_val = ADC_OffsetCenter(4096,adc_val,y1_analog_abs_params.min,y1_analog_abs_params.max,y1_offset); //re-center adc value
 				adc_val = ADC_Deadzone(adc_val,0x000,0xFFF,y1_analog_abs_params.flat); //apply flat value to adc value
 			}else{adc_val = ADC_Deadzone(adc_val,y1_analog_abs_params.min,y1_analog_abs_params.max,y1_analog_abs_params.flat);} //apply flat value to adc value using min and max value of the axis
 			input_report_abs(dev, ABS_Y, adc_val);
-		}else if(debug_mode){
-			printk("mk_arcade_joystick_rpi: failed to read analog Y1, returned %i\n",adc_val);
-		}
+		}else if(debug_mode){printk("mk_arcade_joystick_rpi: failed to read analog Y1, returned %i\n",adc_val);} //nns: debug
 	}
 	
 	if(x2_enable){
 		if(ads1015_enable){adc_val = ADS1015_read(i2c_client_x1,2); //ads1015
 		}else{adc_val = i2c_smbus_read_word_swapped(i2c_client_x2,0);} //mcp3021
-		
 		if(adc_val>=0){
 			if(x2_reverse){adc_val = 4096 - adc_val;} //nns: reverse 12bits value
-			if(adc_val < x2_min){x2_min = adc_val;}
-			if(adc_val > x2_max){x2_max = adc_val;}
+			if(adc_val < x2_min){x2_min = adc_val;} //update x2 analog min value
+			if(adc_val > x2_max){x2_max = adc_val;} //update x2 analog max value
 			if(auto_center){ //nns: adc value correction
-				adc_val = ADC_OffsetCenter(4096,adc_val,x2_analog_abs_params.min,x2_analog_abs_params.max,x2_offset);
+				adc_val = ADC_OffsetCenter(4096,adc_val,x2_analog_abs_params.min,x2_analog_abs_params.max,x2_offset); //re-center adc value
 				adc_val = ADC_Deadzone(adc_val,0x000,0xFFF,x2_analog_abs_params.flat); //apply flat value to adc value
 			}else{adc_val = ADC_Deadzone(adc_val,x2_analog_abs_params.min,x2_analog_abs_params.max,x2_analog_abs_params.flat);} //apply flat value to adc value using min and max value of the axis
 			input_report_abs(dev, ABS_RX, adc_val);
-		}else if(debug_mode){
-			printk("mk_arcade_joystick_rpi: failed to read analog X2, returned %i\n",adc_val);
-		}
+		}else if(debug_mode){printk("mk_arcade_joystick_rpi: failed to read analog X2, returned %i\n",adc_val);} //nns: debug
 	}
 	
 	if(y2_enable){
 		if(ads1015_enable){adc_val = ADS1015_read(i2c_client_x1,3); //ads1015
 		}else{adc_val = i2c_smbus_read_word_swapped(i2c_client_y2,0);} //mcp3021
-		
 		if(adc_val>=0){
 			if(y2_reverse){adc_val = 4096 - adc_val;} //nns: reverse 12bits value
-			if(adc_val < y2_min){y2_min = adc_val;}
-			if(adc_val > y2_max){y2_max = adc_val;}
+			if(adc_val < y2_min){y2_min = adc_val;} //update y2 analog min value
+			if(adc_val > y2_max){y2_max = adc_val;} //update y2 analog max value
 			if(auto_center){ //nns: adc value correction
-				adc_val = ADC_OffsetCenter(4096,adc_val,y2_analog_abs_params.min,y2_analog_abs_params.max,y2_offset);
+				adc_val = ADC_OffsetCenter(4096,adc_val,y2_analog_abs_params.min,y2_analog_abs_params.max,y2_offset); //re-center adc value
 				adc_val = ADC_Deadzone(adc_val,0x000,0xFFF,y2_analog_abs_params.flat); //apply flat value to adc value
 			}else{adc_val = ADC_Deadzone(adc_val,y2_analog_abs_params.min,y2_analog_abs_params.max,y2_analog_abs_params.flat);} //apply flat value to adc value using min and max value of the axis
 			input_report_abs(dev, ABS_RY, adc_val);
-		}else if(debug_mode){
-			printk("mk_arcade_joystick_rpi: failed to read analog Y2, returned %i\n",adc_val);
-		}
+		}else if(debug_mode){printk("mk_arcade_joystick_rpi: failed to read analog Y2, returned %i\n",adc_val);} //nns: debug
 	}
 	
 	for (j = 4; j < MK_MAX_BUTTONS; j++){
@@ -894,28 +870,28 @@ static int __init mk_init(void){
 		i2cbus_cfg.busnum[0] = -1; //default to not using i2c
 	}
 	
-	if(ads1015_cfg.nargs == 0){ //if ads1015 addr was not defined
+	if(ads1015_cfg.nargs == 0){ //nns: if ads1015 addr was not defined
 		ads1015_cfg.address[0] = 0; //default to not using it
 	}
 	
 	if(analog_x1_cfg.nargs == 0){ //if analog input i2c addr was not defined
-		analog_x1_cfg.address[0] = 0; //default to not using it
+		analog_x1_cfg.address[0] = -1; //default to not using it, nns: -1 to avoid using it if ads1015 used
 	}
 	
 	if(analog_y1_cfg.nargs == 0){ //if analog input i2c addr was not defined
-		analog_y1_cfg.address[0] = 0; //default to not using it
+		analog_y1_cfg.address[0] = -1; //default to not using it, nns: -1 to avoid using it if ads1015 used
 	}
 	
 	if(analog_x2_cfg.nargs == 0){ //if analog input i2c addr was not defined
-		analog_x2_cfg.address[0] = 0; //default to not using it
+		analog_x2_cfg.address[0] = -1; //default to not using it, nns: -1 to avoid using it if ads1015 used
 	}
 	
 	if(analog_y2_cfg.nargs == 0){ //if analog input i2c addr was not defined
-		analog_y2_cfg.address[0] = 0; //default to not using it
+		analog_y2_cfg.address[0] = -1; //default to not using it, nns: -1 to avoid using it if ads1015 used
 	}
 	
 	if(auto_center_cfg.nargs > 0){ //if auto_center_analog set
-		if(auto_center_cfg.auto_center[0]){auto_center = true;} //if value > 0 enable
+		if(auto_center_cfg.auto_center[0]){auto_center = true;} //nns: if value > 0, auto center enable
 	}
 	
 	if(analog_x1_direction_cfg.nargs > 0){ //if x1dir set
@@ -935,63 +911,50 @@ static int __init mk_init(void){
 	}
 	
 	
-	x1_analog_abs_params.min = ABS_PARAMS_DEFAULT_X_MIN;
-	x1_analog_abs_params.max = ABS_PARAMS_DEFAULT_X_MAX;
-	x1_analog_abs_params.fuzz = ABS_PARAMS_DEFAULT_X_FUZZ;
-	x1_analog_abs_params.flat = ABS_PARAMS_DEFAULT_X_FLAT;
-	if(analog_x1_abs_params_cfg.nargs > 0){ //if analog_x1_abs_params_cfg set
-		x1_analog_abs_params.min = analog_x1_abs_params_cfg.abs_params[0];
-		if(analog_x1_abs_params_cfg.nargs > 1){
-			x1_analog_abs_params.max = analog_x1_abs_params_cfg.abs_params[1];
-			if(analog_x1_abs_params_cfg.nargs > 2){
-				x1_analog_abs_params.fuzz = analog_x1_abs_params_cfg.abs_params[2];
-				if(analog_x1_abs_params_cfg.nargs > 3){
-				x1_analog_abs_params.flat = analog_x1_abs_params_cfg.abs_params[3];}
+	x1_analog_abs_params.min = ABS_PARAMS_DEFAULT_X_MIN; //x1 analog default min value for input_set_abs_params
+	x1_analog_abs_params.max = ABS_PARAMS_DEFAULT_X_MAX; //x1 analog default max value for input_set_abs_params
+	x1_analog_abs_params.fuzz = ABS_PARAMS_DEFAULT_X_FUZZ; //x1 analog default fuzz value for input_set_abs_params
+	x1_analog_abs_params.flat = ABS_PARAMS_DEFAULT_X_FLAT; //x1 analog default flat value for input_set_abs_params
+	if(analog_x1_abs_params_cfg.nargs > 0){x1_analog_abs_params.min = analog_x1_abs_params_cfg.abs_params[0]; //if analog_x1_abs_params_cfg set, set min value
+		if(analog_x1_abs_params_cfg.nargs > 1){x1_analog_abs_params.max = analog_x1_abs_params_cfg.abs_params[1]; //set max value
+			if(analog_x1_abs_params_cfg.nargs > 2){x1_analog_abs_params.fuzz = analog_x1_abs_params_cfg.abs_params[2]; //set fuzz value
+				if(analog_x1_abs_params_cfg.nargs > 3){x1_analog_abs_params.flat = analog_x1_abs_params_cfg.abs_params[3];} //set flat value
 			}
 		}
 	}
 	
-	y1_analog_abs_params.min = ABS_PARAMS_DEFAULT_Y_MIN;
-	y1_analog_abs_params.max = ABS_PARAMS_DEFAULT_Y_MAX;
-	y1_analog_abs_params.fuzz = ABS_PARAMS_DEFAULT_Y_FUZZ;
-	y1_analog_abs_params.flat = ABS_PARAMS_DEFAULT_Y_FLAT;
-	if(analog_y1_abs_params_cfg.nargs > 0){ //if analog_y1_abs_params_cfg set
-		y1_analog_abs_params.min = analog_y1_abs_params_cfg.abs_params[0];
-		if(analog_y1_abs_params_cfg.nargs > 1){
-			y1_analog_abs_params.max = analog_y1_abs_params_cfg.abs_params[1];
-			if(analog_y1_abs_params_cfg.nargs > 2){
-				y1_analog_abs_params.fuzz = analog_y1_abs_params_cfg.abs_params[2];
-				if(analog_y1_abs_params_cfg.nargs > 3){y1_analog_abs_params.flat = analog_y1_abs_params_cfg.abs_params[3];}
+	y1_analog_abs_params.min = ABS_PARAMS_DEFAULT_Y_MIN; //y1 analog default min value for input_set_abs_params
+	y1_analog_abs_params.max = ABS_PARAMS_DEFAULT_Y_MAX; //y1 analog default max value for input_set_abs_params
+	y1_analog_abs_params.fuzz = ABS_PARAMS_DEFAULT_Y_FUZZ; //y1 analog default fuzz value for input_set_abs_params
+	y1_analog_abs_params.flat = ABS_PARAMS_DEFAULT_Y_FLAT; //y1 analog default flat value for input_set_abs_params
+	if(analog_y1_abs_params_cfg.nargs > 0){y1_analog_abs_params.min = analog_y1_abs_params_cfg.abs_params[0]; //if analog_y1_abs_params_cfg set, set min value
+		if(analog_y1_abs_params_cfg.nargs > 1){y1_analog_abs_params.max = analog_y1_abs_params_cfg.abs_params[1]; //set max value
+			if(analog_y1_abs_params_cfg.nargs > 2){y1_analog_abs_params.fuzz = analog_y1_abs_params_cfg.abs_params[2]; //set fuzz value
+				if(analog_y1_abs_params_cfg.nargs > 3){y1_analog_abs_params.flat = analog_y1_abs_params_cfg.abs_params[3];} //set flat value
 			}
 		}
 	}
 	
-	x2_analog_abs_params.min = ABS_PARAMS_DEFAULT_X_MIN;
-	x2_analog_abs_params.max = ABS_PARAMS_DEFAULT_X_MAX;
-	x2_analog_abs_params.fuzz = ABS_PARAMS_DEFAULT_X_FUZZ;
-	x2_analog_abs_params.flat = ABS_PARAMS_DEFAULT_X_FLAT;
-	if(analog_x2_abs_params_cfg.nargs > 0){ //if analog_x2_abs_params_cfg set
-		x2_analog_abs_params.min = analog_x2_abs_params_cfg.abs_params[0];
-		if(analog_x2_abs_params_cfg.nargs > 1){
-			x2_analog_abs_params.max = analog_x2_abs_params_cfg.abs_params[1];
-			if(analog_x2_abs_params_cfg.nargs > 2){
-				x2_analog_abs_params.fuzz = analog_x2_abs_params_cfg.abs_params[2];
-				if(analog_x2_abs_params_cfg.nargs > 3){x2_analog_abs_params.flat = analog_x2_abs_params_cfg.abs_params[3];}
+	x2_analog_abs_params.min = ABS_PARAMS_DEFAULT_X_MIN; //x2 analog default min value for input_set_abs_params
+	x2_analog_abs_params.max = ABS_PARAMS_DEFAULT_X_MAX; //x2 analog default max value for input_set_abs_params
+	x2_analog_abs_params.fuzz = ABS_PARAMS_DEFAULT_X_FUZZ; //x2 analog default fuzz value for input_set_abs_params
+	x2_analog_abs_params.flat = ABS_PARAMS_DEFAULT_X_FLAT; //x2 analog default flat value for input_set_abs_params
+	if(analog_x2_abs_params_cfg.nargs > 0){x2_analog_abs_params.min = analog_x2_abs_params_cfg.abs_params[0]; //if analog_x2_abs_params_cfg set, set min value
+		if(analog_x2_abs_params_cfg.nargs > 1){x2_analog_abs_params.max = analog_x2_abs_params_cfg.abs_params[1]; //set max value
+			if(analog_x2_abs_params_cfg.nargs > 2){x2_analog_abs_params.fuzz = analog_x2_abs_params_cfg.abs_params[2]; //set fuzz value
+				if(analog_x2_abs_params_cfg.nargs > 3){x2_analog_abs_params.flat = analog_x2_abs_params_cfg.abs_params[3];} //set flat value
 			}
 		}
 	}
 	
-	y2_analog_abs_params.min = ABS_PARAMS_DEFAULT_Y_MIN;
-	y2_analog_abs_params.max = ABS_PARAMS_DEFAULT_Y_MAX;
-	y2_analog_abs_params.fuzz = ABS_PARAMS_DEFAULT_Y_FUZZ;
-	y2_analog_abs_params.flat = ABS_PARAMS_DEFAULT_Y_FLAT;
-	if(analog_y2_abs_params_cfg.nargs > 0){ //if analog_y2_abs_params_cfg set
-		y2_analog_abs_params.min = analog_y2_abs_params_cfg.abs_params[0];
-		if(analog_y2_abs_params_cfg.nargs > 1){
-			y2_analog_abs_params.max = analog_y2_abs_params_cfg.abs_params[1];
-			if(analog_y2_abs_params_cfg.nargs > 2){
-				y2_analog_abs_params.fuzz = analog_y2_abs_params_cfg.abs_params[2];
-				if(analog_y2_abs_params_cfg.nargs > 3){y2_analog_abs_params.flat = analog_y2_abs_params_cfg.abs_params[3];}
+	y2_analog_abs_params.min = ABS_PARAMS_DEFAULT_Y_MIN; //y2 analog default min value for input_set_abs_params
+	y2_analog_abs_params.max = ABS_PARAMS_DEFAULT_Y_MAX; //y2 analog default max value for input_set_abs_params
+	y2_analog_abs_params.fuzz = ABS_PARAMS_DEFAULT_Y_FUZZ; //y2 analog default fuzz value for input_set_abs_params
+	y2_analog_abs_params.flat = ABS_PARAMS_DEFAULT_Y_FLAT; //y2 analog default flat value for input_set_abs_params
+	if(analog_y2_abs_params_cfg.nargs > 0){y2_analog_abs_params.min = analog_y2_abs_params_cfg.abs_params[0]; //if analog_y2_abs_params_cfg set, set min value
+		if(analog_y2_abs_params_cfg.nargs > 1){y2_analog_abs_params.max = analog_y2_abs_params_cfg.abs_params[1]; //set max value
+			if(analog_y2_abs_params_cfg.nargs > 2){y2_analog_abs_params.fuzz = analog_y2_abs_params_cfg.abs_params[2]; //set fuzz value
+				if(analog_y2_abs_params_cfg.nargs > 3){y2_analog_abs_params.flat = analog_y2_abs_params_cfg.abs_params[3];} //set flat value
 			}
 		}
 	}

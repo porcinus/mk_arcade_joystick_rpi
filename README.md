@@ -1,9 +1,9 @@
 ### DO NOT MERGE THIS BRANCH ###
 
 Very experimental version:
-- Implement of ADS1015 support.
-- Implement of dead zone for Evdev.
-- Creation of 'mk_joystick_config' program to allow end user to generation its own settings
+- [Work] Implement of ADS1015 support
+- [Work] Implement of dead zone for Evdev.
+- [InDEV] Creation of 'mk_joystick_config' program to allow end user to generation its own configuration file for the driver.
 
 ### mk_joystick_config
 This software can be use by End User to create a new configuration file for the driver itself, it take in account Analog and GPIO input.

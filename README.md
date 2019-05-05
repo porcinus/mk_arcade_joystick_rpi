@@ -6,6 +6,8 @@ Very experimental version:
 - [InDEV] Creation of 'mk_joystick_config' program to allow end user to generation its own configuration file for the driver.
 
 ### mk_joystick_config
+Require: libpthread and libwiringpi in order to be compile.
+
 This software can be use by End User to create a new configuration file for the driver itself, it take in account Analog and GPIO input.
 Analog input part is able to detect the right ADC chip adress, minimum and maximum values of the axis, determinate if axis is reversed.
 After running this program End User may need to remake Input configuration from EmulationStation but also restart its device in order to get everything working fine.

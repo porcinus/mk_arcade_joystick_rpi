@@ -3,7 +3,7 @@ NNS @ 2019
 mk_joystick_config
 Allow user to create new configuration file for mk_arcade_joystick_rpi Analog/GPIO controller driver.
 */
-const char programversion[]="0.1a"; //program version
+const char programversion[]="0.1b"; //program version
 
 #include <fcntl.h> //file io
 #include <stdio.h> //stream io
@@ -50,10 +50,11 @@ int i2c_handle; //handle to get i2c data
 unsigned char i2c_buffer[16] = {0}; //read/write buffer array
 bool adc_mcp3021 = false; //is mcp3021 enable
 bool adc_ads1015 = false; //is ads1015 enable
-bool adc_user = false; //user selected the adc chip type
+bool adc_user = true; //user selected the adc chip type
 bool adc_calibration = false; //adc calibration started
 bool adc_calibration_done = false; //adc calibration done
 int adc_address[] = {-1,-1,-1,-1,-1,-1,-1,-1}; //detected i2c chip adresses, -1 if nothing
+int adc_address_ads1015 = -1; //specific to ads1015 chip
 int adc_address_count=0; //count of found i2c chip adress
 int adc_detected = 0; //numbers of i2c chip detected
 int adc_detected_back = 0; //numbers of i2c chip detected
@@ -177,18 +178,41 @@ void *adc_routine(void *){ //ADC input thread routine
 					if(debug){printf("---Debug: I2C device detected : %d (0x%2x)\n",loop,loop&0xFF);} //debug
 					adc_address[adc_detected]=loop; //update adc chip adress
 					adc_detected++; //increase adc chip detected
+					
+					//check if ADS1015
+					if(!adc_ads1015){
+						i2c_buffer[0]=0x01;i2c_buffer[1]=0x00;i2c_buffer[2]=0x00; //reset config register
+						write(i2c_handle,i2c_buffer,3);usleep(1000); //write register and wait 1msec
+						read(i2c_handle,i2c_buffer,2); //get result
+						adc_val_tmp=(i2c_buffer[0]<<8)|(i2c_buffer[1]&0xff); //combine to int
+						if(debug){printf("---Debug: read : 0x%04x : ",adc_val_tmp);} //debug
+						if(adc_val_tmp==0x0000){ //ads1015 detected
+							if(debug){printf("ADS1015\n");} //debug
+							adc_ads1015=true;
+							adc_address_ads1015=loop; //update adc chip adress
+							i2c_buffer[0]=0x01;i2c_buffer[1]=(0x83|ads1015_config_ain[0]);i2c_buffer[2]=(0xE3); //config register: AIN0, 3300SPS, +-4.096v FSR
+							write(i2c_handle,i2c_buffer,3); //write config
+						}else{
+							if(debug){printf("MCP3021\n");} //debug
+							adc_mcp3021=true;
+						} //assume adc chip is mcp3021
+					}
 				}
 			}
 		}
-		
+		/*
 		if(adc_detected==0){adc_thread_rc=-2; //no chip detected
 		}else if(adc_detected==1){adc_ads1015=true;adc_thread_rc=0; //ads1015 use
 		}else{adc_mcp3021=true;adc_thread_rc=0;} //mcp3021 use
+		*/
+		if(adc_detected==0){adc_thread_rc=-2; //no chip detected
+		}else{adc_thread_rc=0;} //ok
+		
 	}
 	
 	while(adc_thread_rc>-1){ //loop until fail
 		if(adc_user&&adc_calibration){ // user selected right adc type but calibration in progress
-			if(adc_ads1015){ADS1015_read(adc_address[0]); //read ads1015 values
+			if(adc_ads1015){ADS1015_read(adc_address_ads1015); //read ads1015 values
 			}else if(adc_mcp3021){ //mcp3021 use
 				for(loop=0;loop<adc_address_count;loop++){ //read loop
 					if(adc_address[loop]!=-1){MCP3021_read(adc_address[loop],loop);} //read mcp3021 value
@@ -197,7 +221,7 @@ void *adc_routine(void *){ //ADC input thread routine
 			
 			if((time(NULL)-scanning_start)>4){adc_calibration_done=true; adc_calibration=false;} //calibration done
 		}else if(adc_user&&adc_calibration_done){ // user selected right adc type and calibration done
-			if(adc_ads1015){ADS1015_read(adc_address[0]); //read ads1015 values
+			if(adc_ads1015){ADS1015_read(adc_address_ads1015); //read ads1015 values
 			}else if(adc_mcp3021){ //mcp3021 use
 				for(loop=0;loop<adc_address_count;loop++){ //read loop
 					if(adc_address[loop]!=-1){MCP3021_read(adc_address[loop],loop);} //read mcp3021 value
@@ -217,7 +241,7 @@ void *adc_routine(void *){ //ADC input thread routine
 void MCP3021_read(int addr,int index){ //function to read MCP3021 values
 	if(addr<0){return ;} //no adress, fail
 	if(ioctl(i2c_handle,I2C_SLAVE,addr)>=0){ //try access i2c device
-		if(debug){printf("\r");} //debug
+		//if(debug){printf("\r");} //debug
 		read(i2c_handle,i2c_buffer,2); //get result
 		adc_val_tmp=(i2c_buffer[0]<<8)|(i2c_buffer[1]&0xff); //combine buffer bytes into integer
 		adc_value[index]=adc_val_tmp; //backup new value
@@ -226,7 +250,7 @@ void MCP3021_read(int addr,int index){ //function to read MCP3021 values
 		if(adc_val_tmp<adc_min[index]){adc_min[index]=adc_val_tmp;} //update min value
 		if(adc_max[index]==-1){adc_max[index]=adc_val_tmp;} //set max value if not set
 		if(adc_val_tmp>adc_max[index]){adc_max[index]=adc_val_tmp;} //update max value
-		if(debug){printf("%04d (min: %04d,center: %04d,max: %04d)",adc_val_tmp,adc_min[index],adc_center[index],adc_max[index]);} //debug
+		//if(debug){printf("%04d (min: %04d,center: %04d,max: %04d)",adc_val_tmp,adc_min[index],adc_center[index],adc_max[index]);} //debug
 	}else{return ;}
 }
 
@@ -236,7 +260,7 @@ void ADS1015_read(int addr){
 	if(addr<0){return ;} //no adress, fail
 	int loop; //use for loop
 	if(ioctl(i2c_handle,I2C_SLAVE,addr)>=0){ //try access i2c device
-		if(debug){printf("\r");} //debug
+		//if(debug){printf("\r");} //debug
 		for(loop=0;loop<4;loop++){ //read loop
 			i2c_buffer[0]=0x01; //config register
 			i2c_buffer[1]=(0x83|ads1015_config_ain[loop]);i2c_buffer[2]=(0xE3); //3300SPS, +-4.096v FSR
@@ -252,7 +276,7 @@ void ADS1015_read(int addr){
 			if(adc_val_tmp<adc_min[loop]){adc_min[loop]=adc_val_tmp;} //update min value
 			if(adc_max[loop]==-1){adc_max[loop]=adc_val_tmp;} //set max value if not set
 			if(adc_val_tmp>adc_max[loop]){adc_max[loop]=adc_val_tmp;} //update max value
-			if(debug){printf("%d : %04d (min: %04d,center: %04d,max: %04d), ",loop,adc_val_tmp,adc_min[loop],adc_center[loop],adc_max[loop]);} //debug
+			//if(debug){printf("%d : %04d (min: %04d,center: %04d,max: %04d), ",loop,adc_val_tmp,adc_min[loop],adc_center[loop],adc_max[loop]);} //debug
 		}
 	}else{return ;} //failed to access i2c device
 }
@@ -306,8 +330,9 @@ void show_usage(void){ //usage
 "Version: %s\n"
 "Example : ./mk_joystick_config -debug -maxnoise 60\n"
 "Options:\n"
-"\t-debug, enable some debug stuff[Optional]\n"
-"\t-maxnoise, maximum noise allowed for ADC chip, relative from raw analog center, lower value than 60 could create false positive[Optional]\n"
+"\t-debug, enable some debug stuff [Optional]\n"
+"\t-adcselect, enable user to select ADC chip type [Optional]\n"
+"\t-maxnoise, maximum noise allowed for ADC chip, relative from raw analog center, lower value than 60 could create false positive [Optional]\n"
 ,programversion);
 }
 
@@ -316,6 +341,7 @@ int main(int argc, char *argv[]){ //main
 	for(int i=1;i<argc;++i){ //argument to variable
 		if(strcmp(argv[i],"-help")==0){show_usage();return 1;
 		}else if(strcmp(argv[i],"-maxnoise")==0){adc_maxnoise=atoi(argv[i+1]);
+		}else if(strcmp(argv[i],"-adcselect")==0){adc_user=false;
 		}else if(strcmp(argv[i],"-debug")==0){debug=true;}
 	}
 	
@@ -413,7 +439,6 @@ int main(int argc, char *argv[]){ //main
 	printf("\n\n");
 	
 	
-	
 	//start analog part
 	printf("\033[1m###### Analog part ######\033[0m\n");
 	pthread_create(&adc_thread, NULL, adc_routine, NULL); //create routine thread
@@ -428,30 +453,40 @@ int main(int argc, char *argv[]){ //main
 	}
 	
 	if(adc_mcp3021||adc_ads1015){ //adc chip detected
-		printf("\033[1m%d ADC chip(s)\033[0m detected, please select the right type:\n",adc_detected);
-		retry=true; //allow continue loop
-		while(retry){
-			printf("\033[2K\r\033[92m(A)\033[0m for \033[1mMCP3021A\033[0m");
-			if(adc_mcp3021){printf(" (Detected)");}
-			printf(", \033[92m(B)\033[0m for \033[1mADS1015\033[0m");
-			if(adc_ads1015){printf(" (Detected)");}
-			
-			//button_tmp_gpio = button_B_gpio;
-			button_tmp_gpio = Wait_User_Input(-2,-1); //recover user input
-			if(button_tmp_gpio==button_A_gpio||button_tmp_gpio==button_B_gpio){ //valid input, ask for validation
-				if(button_tmp_gpio==button_A_gpio){printf("\033[2K\rYou selected \033[1mMCP3021A\033[0m? \033[92m(A)\033[0m for \033[1mYes\033[0m, \033[92m(B)\033[0m for \033[1mNo\033[0m");
-				}else if(button_tmp_gpio==button_B_gpio){printf("\033[2K\rYou selected \033[1mADS1015\033[0m? \033[92m(A)\033[0m for \033[1mYes\033[0m, \033[92m(B)\033[0m for \033[1mNo\033[0m");}
+		printf("\033[1m%d ADC chip(s)\033[0m detected\n",adc_detected);
+		if(!adc_user){ //prompt user to select adc chip
+			printf("Please select the right type:\n",adc_detected);
+			retry=true; //allow continue loop
+			while(retry){
+				printf("\033[2K\r\033[92m(A)\033[0m for \033[1mMCP3021A\033[0m");
+				if(adc_mcp3021){printf(" (Detected)");}
+				printf(", \033[92m(B)\033[0m for \033[1mADS1015\033[0m");
+				if(adc_ads1015){printf(" (Detected)");}
 				
-				//button_tmpbis_gpio = button_A_gpio;
-				button_tmpbis_gpio = Wait_User_Input(-2,-1); //recover user input
-				if(button_tmpbis_gpio==button_A_gpio){ //valid input
-					if(button_tmp_gpio==button_A_gpio){printf("\033[2K\r\033[1mMCP3021A\033[0m will be used\n\n");adc_mcp3021=true;adc_ads1015=false;
-					}else if(button_tmp_gpio==button_B_gpio){printf("\033[2K\r\033[1mADS1015\033[0m will be used\n\n");adc_mcp3021=false;adc_ads1015=true;}
-					adc_user=true; //to notify adc thread of user chip selection
-					retry=false; //disable loop
+				//button_tmp_gpio = button_B_gpio;
+				button_tmp_gpio = Wait_User_Input(-2,-1); //recover user input
+				if(button_tmp_gpio==button_A_gpio||button_tmp_gpio==button_B_gpio){ //valid input, ask for validation
+					if(button_tmp_gpio==button_A_gpio){printf("\033[2K\rYou selected \033[1mMCP3021A\033[0m? \033[92m(A)\033[0m for \033[1mYes\033[0m, \033[92m(B)\033[0m for \033[1mNo\033[0m");
+					}else if(button_tmp_gpio==button_B_gpio){printf("\033[2K\rYou selected \033[1mADS1015\033[0m? \033[92m(A)\033[0m for \033[1mYes\033[0m, \033[92m(B)\033[0m for \033[1mNo\033[0m");}
+					
+					//button_tmpbis_gpio = button_A_gpio;
+					button_tmpbis_gpio = Wait_User_Input(-2,-1); //recover user input
+					if(button_tmpbis_gpio==button_A_gpio){ //valid input
+						if(button_tmp_gpio==button_A_gpio){printf("\033[2K\r\033[1mMCP3021A\033[0m will be used\n\n");adc_mcp3021=true;adc_ads1015=false;
+						}else if(button_tmp_gpio==button_B_gpio){printf("\033[2K\r\033[1mADS1015\033[0m will be used\n\n");adc_mcp3021=false;adc_ads1015=true;}
+						adc_user=true; //to notify adc thread of user chip selection
+						retry=false; //disable loop
+					}
 				}
 			}
+		}else{ //autoselect adc chip
+			if(adc_mcp3021){printf("\033[1mMCP3021A\033[0m");}
+			else if(adc_ads1015){printf("\033[1mADS1015\033[0m");}
+			printf(" chip(s) will be used\n\n");
 		}
+		
+		
+		
 		
 		printf("\033[93mVery important: Calibration in progress\033[0m\n");
 		printf("\033[93mPlease touch nothing for \033[1m5sec\033[0m\n");
@@ -660,7 +695,7 @@ int main(int argc, char *argv[]){ //main
 		sprintf(text_config_buffer, " i2cbus=%d",1); strcat(text_config,text_config_buffer); //i2cbus
 		
 		if(adc_autocenter){sprintf(text_config_buffer, " auto_center_analog=%d",1); strcat(text_config,text_config_buffer);} //auto_center_analog
-		if(adc_ads1015){sprintf(text_config_buffer, " ads1015addr=%d",adc_address[0]); strcat(text_config,text_config_buffer);} //ads1015addr
+		if(adc_ads1015){sprintf(text_config_buffer, " ads1015addr=%d",adc_address_ads1015); strcat(text_config,text_config_buffer);} //ads1015addr
 		
 		if(adc_mapping[0]>-1&&adc_mapping[1]>-1){ //x1 and y1 defined
 			if(adc_mcp3021){sprintf(text_config_buffer, " x1addr=%d y1addr=%d",adc_address[adc_mapping[0]],adc_address[adc_mapping[1]]); strcat(text_config,text_config_buffer); //x1addr, y1addr for mcp3021

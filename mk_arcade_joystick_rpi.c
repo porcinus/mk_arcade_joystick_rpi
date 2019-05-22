@@ -264,16 +264,16 @@ struct i2c_client* i2c_client_x2 = NULL;
 struct i2c_client* i2c_client_y2 = NULL;
 uint16_t x1_max = 0;
 uint16_t x1_min = 0xFFFF;
-uint16_t x1_offset = 2048; //nns: use for analog center offcenter
+int16_t x1_offset = 2048; //nns: use for analog center offcenter
 uint16_t y1_max = 0;
 uint16_t y1_min = 0xFFFF;
-uint16_t y1_offset = 2048; //nns: use for analog center offcenter
+int16_t y1_offset = 2048; //nns: use for analog center offcenter
 uint16_t x2_max = 0;
 uint16_t x2_min = 0xFFFF;
-uint16_t x2_offset = 2048; //nns: use for analog center offcenter
+int16_t x2_offset = 2048; //nns: use for analog center offcenter
 uint16_t y2_max = 0;
 uint16_t y2_min = 0xFFFF;
-uint16_t y2_offset = 2048; //nns: use for analog center offcenter
+int16_t y2_offset = 2048; //nns: use for analog center offcenter
 
 bool x1_reverse = false; //nns: x1 reverse direction
 bool y1_reverse = false; //nns: y1 reverse direction
@@ -916,7 +916,7 @@ static int __init mk_init(void){
 	}
 	
 	if(auto_center_cfg.nargs > 0){ //if auto_center_analog set
-		if(auto_center_cfg.auto_center[0]){auto_center = true;} //nns: if value > 0, auto center enable
+		if(auto_center_cfg.auto_center[0]>0){auto_center = true;} //nns: if value > 0, auto center enable
 	}
 	
 	if(analog_x1_direction_cfg.nargs > 0){ //if x1dir set
@@ -1015,6 +1015,9 @@ static int __init mk_init(void){
 				i2c_client_x1 = i2c_new_ADS1015(i2c_dev, ads1015_cfg.address[0]);
 				if(i2c_client_x1){ads1015_enable=true;}
 			}
+			
+			if(auto_center){printk("mk_arcade_joystick_rpi: Auto Center enable\n");
+			}else{printk("mk_arcade_joystick_rpi: Auto Center disable\n");}
 			
 			if(!ads1015_enable&&ads1015_cfg.address[0]==0){ //use MCP3021
 				if(analog_x1_cfg.address[0] > 0){
@@ -1185,10 +1188,25 @@ static int __init mk_init(void){
 			}
 			
 			if(!auto_center){ //nns: if auto center disable, reset all offset
-				x1_offset=abs(((x1_analog_abs_params.max - x1_analog_abs_params.min)/2) + x1_analog_abs_params.min);
-				y1_offset=abs(((y1_analog_abs_params.max - y1_analog_abs_params.min)/2) + y1_analog_abs_params.min);
-				x2_offset=abs(((x2_analog_abs_params.max - x2_analog_abs_params.min)/2) + x2_analog_abs_params.min);
-				y2_offset=abs(((y2_analog_abs_params.max - y2_analog_abs_params.min)/2) + y2_analog_abs_params.min);
+				if(x1_enable){
+					x1_offset=(((x1_analog_abs_params.max-x1_analog_abs_params.min)/2)+x1_analog_abs_params.min)-2047; //nns: compute offset based on min and max
+					printk("mk_arcade_joystick_rpi: X1 offset: %d\n", x1_offset);
+				}
+				
+				if(y1_enable){
+					y1_offset=(((y1_analog_abs_params.max-y1_analog_abs_params.min)/2)+y1_analog_abs_params.min)-2047; //nns: compute offset based on min and max
+					printk("mk_arcade_joystick_rpi: Y1 offset: %d\n", y1_offset);
+				}
+				
+				if(x2_enable){
+					x2_offset=(((x2_analog_abs_params.max-x2_analog_abs_params.min)/2)+x2_analog_abs_params.min)-2047; //nns: compute offset based on min and max
+					printk("mk_arcade_joystick_rpi: X2 offset: %d\n", x2_offset);
+				}
+				
+				if(y2_enable){
+					y2_offset=(((y2_analog_abs_params.max-y2_analog_abs_params.min)/2)+y2_analog_abs_params.min)-2047; //nns: compute offset based on min and max
+					printk("mk_arcade_joystick_rpi: Y2 offset: %d\n", y2_offset);
+				}
 			}
 		}else{
 			printk("mk_arcade_joystick_rpi ERROR: I2C bus %d NOT opened (make sure that I2C is enabled and loaded before this driver)\n", i2cbus_cfg.busnum[0]);

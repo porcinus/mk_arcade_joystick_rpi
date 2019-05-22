@@ -1185,10 +1185,10 @@ static int __init mk_init(void){
 			}
 			
 			if(!auto_center){ //nns: if auto center disable, reset all offset
-				x1_offset=abs(max(x1_analog_abs_params.max,x1_analog_abs_params.min)-min(x1_analog_abs_params.max,x1_analog_abs_params.min));
-				y1_offset=abs(max(y1_analog_abs_params.max,y1_analog_abs_params.min)-min(y1_analog_abs_params.max,y1_analog_abs_params.min));
-				x2_offset=abs(max(x2_analog_abs_params.max,x2_analog_abs_params.min)-min(x2_analog_abs_params.max,x2_analog_abs_params.min));
-				y2_offset=abs(max(y2_analog_abs_params.max,y2_analog_abs_params.min)-min(y2_analog_abs_params.max,y2_analog_abs_params.min));
+				x1_offset=abs(((x1_analog_abs_params.max - x1_analog_abs_params.min)/2) + x1_analog_abs_params.min);
+				y1_offset=abs(((y1_analog_abs_params.max - y1_analog_abs_params.min)/2) + y1_analog_abs_params.min);
+				x2_offset=abs(((x2_analog_abs_params.max - x2_analog_abs_params.min)/2) + x2_analog_abs_params.min);
+				y2_offset=abs(((y2_analog_abs_params.max - y2_analog_abs_params.min)/2) + y2_analog_abs_params.min);
 			}
 		}else{
 			printk("mk_arcade_joystick_rpi ERROR: I2C bus %d NOT opened (make sure that I2C is enabled and loaded before this driver)\n", i2cbus_cfg.busnum[0]);

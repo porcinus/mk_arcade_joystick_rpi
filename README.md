@@ -49,9 +49,9 @@ Other versions of mk_arcade_joystick_rpi are fully integrated in the **recalbox*
 ** Please see the [Recalbox mk_arcade_joystick_rpi](https://github.com/recalbox/mk_arcade_joystick_rpi/) repository for more info**
 
 ## Revisions ##
-UPDATE 0.1.5.12 : Added support for auto center detection
-                  New I2C device handling (to skip devices if i2c is busy)
-                  Bug fixes
+UPDATE 0.1.5.13 : Added ADS1015 i2c support, updated way to handle analog values, implementation the mk_joystick_config program to allow end users to easily create new configuration files.
+
+UPDATE 0.1.5.12 : Added support for auto center detection, New I2C device handling (to skip devices if i2c is busy), Bug fixes
                   
 UPDATE 0.1.5.11 : Fixed support for analog parameters (min, max, fuzz, flat)
 
@@ -71,13 +71,9 @@ UPDATE 0.1.5 : Added GPIO customization
 
 UPDATE 0.1.4 : Compatibily with rpi2 
 
-UPDATE 0.1.3 : Compatibily with 3.18.3 :
+UPDATE 0.1.3 : Compatibily with 3.18.3 : The driver installation now works with 3.18.3 kernel, distributed with the last firmware.
 
-The driver installation now works with 3.18.3 kernel, distributed with the last firmware.
-
-UPDATE 0.1.2 : Downgrade to 3.12.28+ :
-
-As the module will not load with recent kernel and headers, we add the possibility of downgrading your firmware to a compatible version, until we find a fix.
+UPDATE 0.1.2 : Downgrade to 3.12.28+ : As the module will not load with recent kernel and headers, we add the possibility of downgrading your firmware to a compatible version, until we find a fix.
 
 UPDATE 0.1.1 : RPi B+ VERSION :
 
@@ -86,10 +82,38 @@ The new Raspberry Pi B+ Revision brought us 9 more GPIOs, so we are now able to 
 ## The Software ##
 The joystick driver is based on the gamecon_gpio_rpi driver by [marqs](https://github.com/marqs85)
 
-
 Credits
 -------------
 -  [gamecon_gpio_rpi](https://github.com/petrockblog/RetroPie-Setup/wiki/gamecon_gpio_rpi) by [marqs](https://github.com/marqs85)
 -  [recalbox mk_arcade_joystick_rpi](https://github.com/recalbox/mk_arcade_joystick_rpi)
 -  [RetroPie-Setup](https://github.com/petrockblog/RetroPie-Setup) by [petRockBlog](http://blog.petrockblock.com/)
 -  [Low Level Programming of the Raspberry Pi in C](http://www.pieter-jan.com/node/15) by [Pieter-Jan](http://www.pieter-jan.com/)
+
+
+# mk_joystick_config #
+
+This software can be use by End User to create a new configuration file for the driver itself, it take in account Analog and GPIO input. Analog input part is able to detect the right ADC chip adress, minimum and maximum values of the axis, determinate if axis is reversed. After running this program End User may need to remake Input configuration from EmulationStation but also restart its device in order to get everything working fine.
+
+Important note about Hotkey button: some user doesn't set this button in order to user Select button when configuring input from EmulationStation settings menu, in this case, Power Slider need to be used in mk_joystick_config to allow user to bind Select to the right input.
+
+
+## Compile by hand ##
+Require: libpthread and libwiringpi in order to be compile.
+
+```gcc -o mk_joystick_config mk_joystick_config.cpp -lwiringPi -lpthread```
+
+
+## Usage ##
+```./mk_joystick_config -debug -maxnoise 60 -adcselect```
+
+Options:
+-debug, enable some debug stuff (Optional)
+-adcselect, force user to select ADC chip type (Optional)
+-maxnoise, maximum noise allowed for ADC chip, relative from raw analog center, lower value than 60 could create false positive (Optional)
+
+
+## History ##
+- 0.1a : Initial testing release.
+- 0.1b : Autodetection of ADC type fully implemented.
+- 0.1c : Bugfix.
+

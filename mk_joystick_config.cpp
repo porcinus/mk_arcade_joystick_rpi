@@ -551,7 +551,7 @@ int main(int argc, char *argv[]){ //main
 			for(tmploop=0;tmploop<adc_address_count;tmploop++){adc_min[tmploop]=-1;adc_max[tmploop]=-1;} //reset min/max
 			
 			if(adc_mapping[0]>-1&&adc_mapping[1]>-1){ //x1 and y1 defined
-				printf("\033[2K\r\033[1mMove analogs all around to there limits\033[0m then press \033[92m(A)\033[0m");
+				printf("\033[2K\r\033[1mSlightly move analogs to their edges\033[0m then press \033[92m(A)\033[0m");
 				
 				retry=true;
 				while(retry){

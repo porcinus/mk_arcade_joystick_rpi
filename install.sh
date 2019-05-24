@@ -12,7 +12,7 @@ done
 
 sudo mkdir /usr/src/mk_arcade_joystick_rpi-$CURR_VER
 sudo cp -a * /usr/src/mk_arcade_joystick_rpi-$CURR_VER/
-sudo apt-get install -y --force-yes dkms cpp-4.7 gcc-4.7 joystick raspberrypi-kernel raspberrypi-kernel-headers wiringpi
+sudo apt-get install -y --force-yes dkms cpp-4.7 gcc-4.7 joystick raspberrypi-kernel raspberrypi-kernel-headers wiringpi libpthread-stubs0-dev 
 echo If your kernel was just updated, you may need to reboot and rerun this script
 sudo dkms build -m mk_arcade_joystick_rpi -v $CURR_VER
 sudo dkms install -m mk_arcade_joystick_rpi -v $CURR_VER --force
@@ -44,4 +44,14 @@ sudo sh -c 'echo "#options mk_arcade_joystick_rpi map=4 gpio=4,17,6,5,19,26,16,2
 sudo sh -c 'echo "#this next line is for use with a single PSP1000 analog stick using min/max/fuzz/flat parameters" >> /etc/modprobe.d/mk_arcade_joystick.conf'
 sudo sh -c 'echo "#options mk_arcade_joystick_rpi map=4 hkmode=2 i2cbus=1 x1addr=72 y1addr=77 x1params=374,3418,16,384 y1params=517,3378,16,384 gpio=4,17,6,5,19,26,16,24,23,18,15,14,-20,42,43,-1,41,-1,-1,-1,-1" >> /etc/modprobe.d/mk_arcade_joystick.conf'
 sudo modprobe mk_arcade_joystick_rpi
+
+printf "Compiling mk_joystick_config : "
+sudo g++ mk_joystick_config.cpp -o mk_joystick_config -lpthread -lwiringPi
+if [ -e mk_joystick_config ]; then
+	echo "Success."
+else
+	echo "Failed."
+fi
+
+
 echo "It is recommended that you run 'sudo nano /etc/modprobe.d/mk_arcade_joystick.conf' to set up desired parameters."

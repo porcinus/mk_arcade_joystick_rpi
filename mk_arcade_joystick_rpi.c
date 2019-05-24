@@ -264,16 +264,16 @@ struct i2c_client* i2c_client_x2 = NULL;
 struct i2c_client* i2c_client_y2 = NULL;
 uint16_t x1_max = 0;
 uint16_t x1_min = 0xFFFF;
-uint16_t x1_offset = 2048; //nns: use for analog center offcenter
+int16_t x1_offset = 2048; //nns: use for analog center offcenter
 uint16_t y1_max = 0;
 uint16_t y1_min = 0xFFFF;
-uint16_t y1_offset = 2048; //nns: use for analog center offcenter
+int16_t y1_offset = 2048; //nns: use for analog center offcenter
 uint16_t x2_max = 0;
 uint16_t x2_min = 0xFFFF;
-uint16_t x2_offset = 2048; //nns: use for analog center offcenter
+int16_t x2_offset = 2048; //nns: use for analog center offcenter
 uint16_t y2_max = 0;
 uint16_t y2_min = 0xFFFF;
-uint16_t y2_offset = 2048; //nns: use for analog center offcenter
+int16_t y2_offset = 2048; //nns: use for analog center offcenter
 
 bool x1_reverse = false; //nns: x1 reverse direction
 bool y1_reverse = false; //nns: y1 reverse direction
@@ -368,12 +368,14 @@ static int16_t ADC_OffsetCenter(uint16_t adc_resolution,uint16_t adc_value,uint1
 	return corrected_value;
 }
 
+
 static int16_t ADC_Deadzone(uint16_t adc_value,uint16_t min,uint16_t max,uint16_t flat){
 	int16_t adc_center; //used variables
 	adc_center=(max+min)/2; //center value, 2048 for 12bits
 	if(adc_value>adc_center-flat&&adc_value<adc_center+flat){adc_value=adc_center;} //apply flat value to adc value
 	return adc_value;
 }
+
 
 static int16_t ADS1015_read(const struct i2c_client *client,uint16_t axis){ //based on https://github.com/torvalds/linux/blob/master/drivers/hwmon/ads1015.c
 	int16_t value=0; //used variables
@@ -526,10 +528,14 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data){
 			if(x1_reverse){adc_val = 4096 - adc_val;} //nns: reverse 12bits value
 			if(adc_val < x1_min){x1_min = adc_val;} //update x1 analog min value
 			if(adc_val > x1_max){x1_max = adc_val;} //update x1 analog max value
+			adc_val = ADC_OffsetCenter(4096,adc_val,x1_analog_abs_params.min,x1_analog_abs_params.max,x1_offset); //re-center adc value
+			adc_val = ADC_Deadzone(adc_val,0x000,0xFFF,x1_analog_abs_params.flat); //apply flat value to adc value
+			/*
 			if(auto_center){ //nns: adc value correction
 				adc_val = ADC_OffsetCenter(4096,adc_val,x1_analog_abs_params.min,x1_analog_abs_params.max,x1_offset); //re-center adc value
 				adc_val = ADC_Deadzone(adc_val,0x000,0xFFF,x1_analog_abs_params.flat); //apply flat value to adc value
 			}else{adc_val = ADC_Deadzone(adc_val,x1_analog_abs_params.min,x1_analog_abs_params.max,x1_analog_abs_params.flat);} //apply flat value to adc value using min and max value of the axis
+			*/
 			input_report_abs(dev, ABS_X, adc_val);
 		}else if(debug_mode){printk("mk_arcade_joystick_rpi: failed to read analog X1, returned %i\n",adc_val);} //nns: debug
 	}
@@ -541,10 +547,14 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data){
 			if(y1_reverse){adc_val = 4096 - adc_val;} //nns: reverse 12bits value
 			if(adc_val < y1_min){y1_min = adc_val;} //update y1 analog min value
 			if(adc_val > y1_max){y1_max = adc_val;} //update y1 analog max value
+			adc_val = ADC_OffsetCenter(4096,adc_val,y1_analog_abs_params.min,y1_analog_abs_params.max,y1_offset); //re-center adc value
+			adc_val = ADC_Deadzone(adc_val,0x000,0xFFF,y1_analog_abs_params.flat); //apply flat value to adc value
+			/*
 			if(auto_center){ //nns: adc value correction
 				adc_val = ADC_OffsetCenter(4096,adc_val,y1_analog_abs_params.min,y1_analog_abs_params.max,y1_offset); //re-center adc value
 				adc_val = ADC_Deadzone(adc_val,0x000,0xFFF,y1_analog_abs_params.flat); //apply flat value to adc value
 			}else{adc_val = ADC_Deadzone(adc_val,y1_analog_abs_params.min,y1_analog_abs_params.max,y1_analog_abs_params.flat);} //apply flat value to adc value using min and max value of the axis
+			*/
 			input_report_abs(dev, ABS_Y, adc_val);
 		}else if(debug_mode){printk("mk_arcade_joystick_rpi: failed to read analog Y1, returned %i\n",adc_val);} //nns: debug
 	}
@@ -556,10 +566,14 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data){
 			if(x2_reverse){adc_val = 4096 - adc_val;} //nns: reverse 12bits value
 			if(adc_val < x2_min){x2_min = adc_val;} //update x2 analog min value
 			if(adc_val > x2_max){x2_max = adc_val;} //update x2 analog max value
+			adc_val = ADC_OffsetCenter(4096,adc_val,x2_analog_abs_params.min,x2_analog_abs_params.max,x2_offset); //re-center adc value
+			adc_val = ADC_Deadzone(adc_val,0x000,0xFFF,x2_analog_abs_params.flat); //apply flat value to adc value
+			/*
 			if(auto_center){ //nns: adc value correction
 				adc_val = ADC_OffsetCenter(4096,adc_val,x2_analog_abs_params.min,x2_analog_abs_params.max,x2_offset); //re-center adc value
 				adc_val = ADC_Deadzone(adc_val,0x000,0xFFF,x2_analog_abs_params.flat); //apply flat value to adc value
 			}else{adc_val = ADC_Deadzone(adc_val,x2_analog_abs_params.min,x2_analog_abs_params.max,x2_analog_abs_params.flat);} //apply flat value to adc value using min and max value of the axis
+			*/
 			input_report_abs(dev, ABS_RX, adc_val);
 		}else if(debug_mode){printk("mk_arcade_joystick_rpi: failed to read analog X2, returned %i\n",adc_val);} //nns: debug
 	}
@@ -571,10 +585,14 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data){
 			if(y2_reverse){adc_val = 4096 - adc_val;} //nns: reverse 12bits value
 			if(adc_val < y2_min){y2_min = adc_val;} //update y2 analog min value
 			if(adc_val > y2_max){y2_max = adc_val;} //update y2 analog max value
+			adc_val = ADC_OffsetCenter(4096,adc_val,y2_analog_abs_params.min,y2_analog_abs_params.max,y2_offset); //re-center adc value
+			adc_val = ADC_Deadzone(adc_val,0x000,0xFFF,y2_analog_abs_params.flat); //apply flat value to adc value
+			/*
 			if(auto_center){ //nns: adc value correction
 				adc_val = ADC_OffsetCenter(4096,adc_val,y2_analog_abs_params.min,y2_analog_abs_params.max,y2_offset); //re-center adc value
 				adc_val = ADC_Deadzone(adc_val,0x000,0xFFF,y2_analog_abs_params.flat); //apply flat value to adc value
 			}else{adc_val = ADC_Deadzone(adc_val,y2_analog_abs_params.min,y2_analog_abs_params.max,y2_analog_abs_params.flat);} //apply flat value to adc value using min and max value of the axis
+			*/
 			input_report_abs(dev, ABS_RY, adc_val);
 		}else if(debug_mode){printk("mk_arcade_joystick_rpi: failed to read analog Y2, returned %i\n",adc_val);} //nns: debug
 	}
@@ -756,6 +774,12 @@ static int __init mk_setup_pad(struct mk *mk, int idx, int pad_type_arg){
 	*/
 	
 	//i2c ADC
+	if(x1_enable){input_set_abs_params(input_dev, ABS_X, 0x000, 0xFFF, x1_analog_abs_params.fuzz, x1_analog_abs_params.flat);} //nns: parameters for center offcenter values
+	if(y1_enable){input_set_abs_params(input_dev, ABS_Y, 0x000, 0xFFF, y1_analog_abs_params.fuzz, y1_analog_abs_params.flat);} //nns: parameters for center offcenter values
+	if(x2_enable){input_set_abs_params(input_dev, ABS_RX, 0x000, 0xFFF, x2_analog_abs_params.fuzz, x2_analog_abs_params.flat);} //nns: parameters for center offcenter values
+	if(y2_enable){input_set_abs_params(input_dev, ABS_RY, 0x000, 0xFFF, y2_analog_abs_params.fuzz, y2_analog_abs_params.flat);} //nns: parameters for center offcenter values
+	
+	/*
 	if(auto_center){
 		if(x1_enable){input_set_abs_params(input_dev, ABS_X, 0x000, 0xFFF, x1_analog_abs_params.fuzz, x1_analog_abs_params.flat);} //nns: parameters for center offcenter values
 		if(y1_enable){input_set_abs_params(input_dev, ABS_Y, 0x000, 0xFFF, y1_analog_abs_params.fuzz, y1_analog_abs_params.flat);} //nns: parameters for center offcenter values
@@ -767,7 +791,8 @@ static int __init mk_setup_pad(struct mk *mk, int idx, int pad_type_arg){
 		if(y1_enable){input_set_abs_params(input_dev, ABS_Y, y1_analog_abs_params.min, y1_analog_abs_params.max, y1_analog_abs_params.fuzz, y1_analog_abs_params.flat);}
 		if(x2_enable){input_set_abs_params(input_dev, ABS_RX, x2_analog_abs_params.min, x2_analog_abs_params.max, x2_analog_abs_params.fuzz, x2_analog_abs_params.flat);}
 		if(y2_enable){input_set_abs_params(input_dev, ABS_RY, y2_analog_abs_params.min, y2_analog_abs_params.max, y2_analog_abs_params.fuzz, y2_analog_abs_params.flat);}
-	}
+	}*/
+	
 	
 	for (i = 0; i < MK_MAX_BUTTONS - 4; i++){
 		if(pad->gpio_maps[i+4] != -1){__set_bit(mk_arcade_gpio_btn[i], input_dev->keybit);}
@@ -891,7 +916,7 @@ static int __init mk_init(void){
 	}
 	
 	if(auto_center_cfg.nargs > 0){ //if auto_center_analog set
-		if(auto_center_cfg.auto_center[0]){auto_center = true;} //nns: if value > 0, auto center enable
+		if(auto_center_cfg.auto_center[0]>0){auto_center = true;} //nns: if value > 0, auto center enable
 	}
 	
 	if(analog_x1_direction_cfg.nargs > 0){ //if x1dir set
@@ -990,6 +1015,9 @@ static int __init mk_init(void){
 				i2c_client_x1 = i2c_new_ADS1015(i2c_dev, ads1015_cfg.address[0]);
 				if(i2c_client_x1){ads1015_enable=true;}
 			}
+			
+			if(auto_center){printk("mk_arcade_joystick_rpi: Auto Center enable\n");
+			}else{printk("mk_arcade_joystick_rpi: Auto Center disable\n");}
 			
 			if(!ads1015_enable&&ads1015_cfg.address[0]==0){ //use MCP3021
 				if(analog_x1_cfg.address[0] > 0){
@@ -1156,6 +1184,28 @@ static int __init mk_init(void){
 						if(debug_mode){printk("mk_arcade_joystick_rpi: returned %i\n",value);}
 						ads1015_lookup[3]=-1;
 					}
+				}
+			}
+			
+			if(!auto_center){ //nns: if auto center disable, reset all offset
+				if(x1_enable){
+					x1_offset=(((x1_analog_abs_params.max-x1_analog_abs_params.min)/2)+x1_analog_abs_params.min)-2047; //nns: compute offset based on min and max
+					printk("mk_arcade_joystick_rpi: X1 offset: %d\n", x1_offset);
+				}
+				
+				if(y1_enable){
+					y1_offset=(((y1_analog_abs_params.max-y1_analog_abs_params.min)/2)+y1_analog_abs_params.min)-2047; //nns: compute offset based on min and max
+					printk("mk_arcade_joystick_rpi: Y1 offset: %d\n", y1_offset);
+				}
+				
+				if(x2_enable){
+					x2_offset=(((x2_analog_abs_params.max-x2_analog_abs_params.min)/2)+x2_analog_abs_params.min)-2047; //nns: compute offset based on min and max
+					printk("mk_arcade_joystick_rpi: X2 offset: %d\n", x2_offset);
+				}
+				
+				if(y2_enable){
+					y2_offset=(((y2_analog_abs_params.max-y2_analog_abs_params.min)/2)+y2_analog_abs_params.min)-2047; //nns: compute offset based on min and max
+					printk("mk_arcade_joystick_rpi: Y2 offset: %d\n", y2_offset);
 				}
 			}
 		}else{

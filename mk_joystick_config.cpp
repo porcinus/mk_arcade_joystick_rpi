@@ -3,7 +3,7 @@ NNS @ 2019
 mk_joystick_config
 Allow user to create new configuration file for mk_arcade_joystick_rpi Analog/GPIO controller driver.
 */
-const char programversion[]="0.1b"; //program version
+const char programversion[]="0.1c"; //program version
 
 #include <fcntl.h> //file io
 #include <stdio.h> //stream io

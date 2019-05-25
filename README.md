@@ -97,8 +97,9 @@ This software can be use by End User to create a new configuration file for the 
 Important note about Hotkey button: some user doesn't set this button in order to user Select button when configuring input from EmulationStation settings menu, in this case, Power Slider need to be used in mk_joystick_config to allow user to bind Select to the right input.
 
 
-## Compile by hand ##
-Require: libpthread and libwiringpi in order to be compile.
+## Compile ##
+Require: libpthread and libwiringpi in order to be compile. 
+This program is compiled when installing the driver, to compile it by hand :
 
 ```gcc -o mk_joystick_config mk_joystick_config.cpp -lwiringPi -lpthread```
 
@@ -107,9 +108,9 @@ Require: libpthread and libwiringpi in order to be compile.
 ```./mk_joystick_config -debug -maxnoise 60 -adcselect```
 
 Options:
--debug, enable some debug stuff (Optional)
--adcselect, force user to select ADC chip type (Optional)
--maxnoise, maximum noise allowed for ADC chip, relative from raw analog center, lower value than 60 could create false positive (Optional)
+-debug, (Optional) enable some debug stuff, default:off. 
+-adcselect, (Optional) force user to select ADC chip type, default:off. 
+-maxnoise, (Optional) maximum noise allowed for ADC chip, relative from raw analog center, lower value than 60 could create false positive, default:60. 
 
 
 ## History ##

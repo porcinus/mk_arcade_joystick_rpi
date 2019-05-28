@@ -10,3 +10,9 @@ all:
 
 clean:
 	$(MAKE) -C /lib/modules/$(KVER)/build M=$(PWD) clean
+
+config:
+	$(MAKE) -o mk_joystick_config mk_joystick_config.cpp -lwiringPi -lpthread
+	mk_joystick_config -maxnoise 60 -adcselect
+	echo SYSTEM SHUTTING DOWN NOW
+	sudo reboot

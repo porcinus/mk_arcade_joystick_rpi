@@ -97,9 +97,9 @@ The new Raspberry Pi B+ Revision brought us 9 more GPIOs, so we are now able to 
 
 This utility makes creation of a new keymap easier, accounting for analog and GPIO inputs. Detects available I2C chips, min/max values of the axis, and if the axis is reversed. After a new config file has been created, the user will need to rebind the controls for emulationstation. To make sure this is done, we backup your old config and remove the original, which is found in `/opt/retropie/configs/all/emulationstation/es_input.cfg.bak` should you need it. The new one can be found in the same directory without the `.bak` extension.
 
-##### Important note about Hotkey button: Some users don't use the Power Slider as Hotkey, instead opting to use Select. You still need to map the Power Slider in mk_joystick_config for correct binding behavior.
+##### NOTE: Some users don't use the Power Slider as Hotkey, instead opting to use Select. You still need to map the Power Slider in mk_joystick_config for correct binding behavior.
 
-### Usage
+## Usage
 - `make config` (recommended, runs mk_joystick_config with recommended settings and backs up your old emulationstation bindings, shuts down after use. You will be prompted to rebind keys in emulationstation on next system startup)
 - `./mk_joystick_config [-debug] [-maxnoise [60]] [-adcselect]` 
   - (If you need to debug or change the noise value)
@@ -108,6 +108,8 @@ This utility makes creation of a new keymap easier, accounting for analog and GP
 - `-debug`, enable debug messages, Recommended: off (Optional)
 - `-adcselect`, force user to select ADC chip type, default:off (Optional)
 - `-maxnoise`, maximum noise allowed for ADC chip, values under 60 can cause issues, Recommended:60 (Optional)
+
+##### NOTE: Press analogs to their extremes softly, rotating slowly once or twice. Pushing too hard or rotating them too many times will make binding hard/impossible. If you do this by accident, you can reduce each value in the config with the same value decreased/increased by ~5% for the larger/smaller values, respectively.
 
 ## Changelog
 - 0.1c : Bugfix

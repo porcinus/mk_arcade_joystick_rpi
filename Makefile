@@ -13,6 +13,7 @@ clean:
 
 config:
 	$(MAKE) -o mk_joystick_config mk_joystick_config.cpp -lwiringPi -lpthread
+	sudo mv /etc/modprobe.d/mk_arcade_joystick.conf /etc/modprobe.d/mk_arcade_joystick.conf.bak
 	mk_joystick_config -maxnoise 60 -adcselect
 	echo SYSTEM SHUTTING DOWN NOW
 	sudo reboot

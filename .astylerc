@@ -1,0 +1,14 @@
+--style=google
+--indent=tab
+--indent-classes
+--indent-switches
+--indent-col1-comments
+--break-blocks
+--pad-oper
+--pad-paren
+--align-pointer=name
+--align-reference=name
+--break-one-line-headers
+--add-braces
+--attach-return-type
+--max-code-length=100

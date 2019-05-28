@@ -87,12 +87,7 @@ UPDATE 0.1.1 : RPi B+ VERSION :
 
 The new Raspberry Pi B+ Revision brought us 9 more GPIOs, so we are now able to connect 2 joysticks and 12 buttons directly to GPIOs. I updated the driver in order to support the 2 joysticks on GPIO configuration.
 
-## The Software
-The joystick driver is based on the gamecon_gpio_rpi driver by [marqs](https://github.com/marqs85)
-
-
-Credits
--------------
+### Credits
 -  [gamecon_gpio_rpi](https://github.com/petrockblog/RetroPie-Setup/wiki/gamecon_gpio_rpi) by [marqs](https://github.com/marqs85)
 -  [recalbox mk_arcade_joystick_rpi](https://github.com/recalbox/mk_arcade_joystick_rpi)
 -  [RetroPie-Setup](https://github.com/petrockblog/RetroPie-Setup) by [petRockBlog](http://blog.petrockblock.com/)
@@ -105,11 +100,12 @@ This utility makes creation of a new keymap easier, accounting for analog and GP
 ##### Important note about Hotkey button: Some users don't use the Power Slider as Hotkey, instead opting to use Select. You still need to map the Power Slider in mk_joystick_config for correct binding behavior.
 
 ### Usage
-- `make config` (recommended, runs mk_joystick_config with recommended settings and backs up your old emulationstation bindings, shuts down after use)
-- `./mk_joystick_config [-debug] [-maxnoise [60]] [-adcselect]` (If you need to debug or change the noise value)
+- `make config` (recommended, runs mk_joystick_config with recommended settings and backs up your old emulationstation bindings, shuts down after use. You will be prompted to rebind keys in emulationstation on next system startup)
+- `./mk_joystick_config [-debug] [-maxnoise [60]] [-adcselect]` 
+  - (If you need to debug or change the noise value)
 
-### Options
-- `-debug`, enable some debug stuff, default:off (Optional)
+### Optional Flags
+- `-debug`, enable debug messages, Recommended: off (Optional)
 - `-adcselect`, force user to select ADC chip type, default:off (Optional)
 - `-maxnoise`, maximum noise allowed for ADC chip, values under 60 can cause issues, Recommended:60 (Optional)
 

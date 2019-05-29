@@ -25,7 +25,7 @@ else
 fi
 
 
-if [ -e /etc/modprobe.d/mk_arcade_joystick_rpi.conf && grep -q -e "^options mk_arcade_joystick_rpi" /etc/modprobe.d/mk_arcade_joystick.conf ]; then
+if grep -q -e "^options mk_arcade_joystick_rpi" /etc/modprobe.d/mk_arcade_joystick.conf ; then
 	echo "/etc/modprobe.d/mk_arcade_joystick.conf exists and contains options for mk_arcade_joystick_rpi"
 	sudo sh -c 'echo "##### Options below this line are for v0.1.5.10 of the driver.  Options above this may not function." >> /etc/modprobe.d/mk_arcade_joystick.conf'
 	sudo sh -c 'echo "#options mk_arcade_joystick_rpi map=4 gpio=4,17,6,5,19,26,16,24,23,18,15,14,-20,-1,-1,-1,-1,-1,-1,-1,-1 hkmode=2" >> /etc/modprobe.d/mk_arcade_joystick.conf'

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 declare CURR_VER=0.1.5.13
 declare -a MK_VERS=(`ls /usr/src | grep mk_arcade_joystick_rpi | sort -n -r | cut -d '-' -f 2`)
@@ -54,6 +54,7 @@ else
 	sudo sh -c 'echo "#this next line is for use with a single PSP1000 analog stick using min/max/fuzz/flat parameters" >> /etc/modprobe.d/mk_arcade_joystick.conf'
 	sudo sh -c 'echo "#options mk_arcade_joystick_rpi map=4 hkmode=2 i2cbus=1 x1addr=72 y1addr=77 x1params=374,3418,16,384 y1params=517,3378,16,384 gpio=4,17,6,5,19,26,16,24,23,18,15,14,-20,42,43,-1,41,-1,-1,-1,-1" >> /etc/modprobe.d/mk_arcade_joystick.conf'
 fi
+
 echo ""
 
 sudo modprobe mk_arcade_joystick_rpi

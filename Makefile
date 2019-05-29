@@ -10,3 +10,10 @@ all:
 
 clean:
 	$(MAKE) -C /lib/modules/$(KVER)/build M=$(PWD) clean
+
+config:
+	$(MAKE) -o mk_joystick_config mk_joystick_config.cpp -lwiringPi -lpthread
+	mk_joystick_config -maxnoise 60 -adcselect
+	sudo mv /opt/retropie/configs/all/emulationstation/es_input.cfg /opt/retropie/configs/all/emulationstation/es_input.cfg.bak
+	echo SYSTEM SHUTTING DOWN NOW
+	sudo reboot

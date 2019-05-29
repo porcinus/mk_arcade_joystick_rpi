@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 declare CURR_VER=0.1.5.13
 declare -a MK_VERS=(`ls /usr/src | grep mk_arcade_joystick_rpi | sort -n -r | cut -d '-' -f 2`)

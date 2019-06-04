@@ -48,3 +48,5 @@ sudo sh -c 'echo "#options mk_arcade_joystick_rpi map=4 hkmode=2 i2cbus=1 x1addr
 sudo modprobe mk_arcade_joystick_rpi
 
 echo "It is recommended that you run 'sudo nano /etc/modprobe.d/mk_arcade_joystick.conf' to set up desired parameters."
+
+echo 0

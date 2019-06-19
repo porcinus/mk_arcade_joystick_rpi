@@ -4,10 +4,10 @@ declare CURR_VER=0.1.6.0
 declare -a MK_VERS=(`ls /usr/src | grep mk_arcade_joystick_rpi | sort -n -r | cut -d '-' -f 2`)
 
 sudo modprobe -r mk_arcade_joystick_rpi
+sudo rm -rf /usr/src/mk_arcade_joystick_rpi-*
 
 for MK_VER_NUM in "${MK_VERS[@]}"; do
 	sudo dkms remove -m mk_arcade_joystick_rpi -v $MK_VER_NUM --all
-	sudo rm -rf /usr/src/mk_arcade_joystick_rpi-$MK_VER_NUM
 done
 
 sudo mkdir /usr/src/mk_arcade_joystick_rpi-$CURR_VER

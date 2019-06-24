@@ -4,12 +4,12 @@ declare CURR_VER=0.1.6.0
 declare -a MK_VERS=(`ls /usr/src | grep mk_arcade_joystick_rpi | sort -n -r | cut -d '-' -f 2`)
 
 sudo modprobe -r mk_arcade_joystick_rpi
-sudo rm -rf /usr/src/mk_arcade_joystick_rpi-*
 
 for MK_VER_NUM in "${MK_VERS[@]}"; do
 	sudo dkms remove -m mk_arcade_joystick_rpi -v $MK_VER_NUM --all
 done
 
+sudo rm -rf /usr/src/mk_arcade_joystick_rpi-*
 sudo mkdir /usr/src/mk_arcade_joystick_rpi-$CURR_VER
 sudo cp -a * /usr/src/mk_arcade_joystick_rpi-$CURR_VER/
 sudo apt-get install -y --force-yes dkms cpp-4.7 gcc-4.7 joystick raspberrypi-kernel raspberrypi-kernel-headers wiringpi libpthread-stubs0-dev

@@ -4,6 +4,7 @@ declare CURR_VER=0.1.6.0
 declare -a MK_VERS=(`ls /usr/src | grep mk_arcade_joystick_rpi | sort -n -r | cut -d '-' -f 2`)
 
 sudo modprobe -r mk_arcade_joystick_rpi
+sudo rm -rf /usr/src/mk_arcade_joystick_rpi-*
 
 for MK_VER_NUM in "${MK_VERS[@]}"; do
 	sudo dkms remove -m mk_arcade_joystick_rpi -v $MK_VER_NUM --all
@@ -25,7 +26,9 @@ else
 fi
 echo ""
 
-if [ -e /etc/modprobe.d/mk_arcade_joystick.conf ] && grep -q -e "^options mk_arcade_joystick_rpi" /etc/modprobe.d/mk_arcade_joystick.conf ; then
+
+if [ -e "/etc/modprobe.d/mk_arcade_joystick.conf" ] && grep -q -e "^options mk_arcade_joystick_rpi" /etc/modprobe.d/mk_arcade_joystick.conf ; then
+
 	echo "/etc/modprobe.d/mk_arcade_joystick.conf exists and contains options for mk_arcade_joystick_rpi"
 
 	if grep -q -e "v0.1.5.10" /etc/modprobe.d/mk_arcade_joystick.conf ; then
@@ -40,7 +43,7 @@ if [ -e /etc/modprobe.d/mk_arcade_joystick.conf ] && grep -q -e "^options mk_arc
 else
 	sudo sh -c 'echo "" >> /etc/modprobe.d/mk_arcade_joystick.conf'
 	sudo sh -c 'echo "##### Options below this line are for v0.1.5.10+ of the driver.  Options above this may not function." >> /etc/modprobe.d/mk_arcade_joystick.conf'
-	sudo sh -c 'echo "#U,D,L,R BTN_START, BTN_SELECT, BTN_A, BTN_B, BTN_TR, BTN_Y, BTN_X, BTN_TL, BTN_MODE, BTN_TL2, BTN_TR2, BTN_C, BTN_Z"'
+	sudo sh -c 'echo "#U,D,L,R BTN_START, BTN_SELECT, BTN_A, BTN_B, BTN_TR, BTN_Y, BTN_X, BTN_TL, BTN_MODE, BTN_TL2, BTN_TR2, BTN_C, BTN_Z" >> /etc/modprobe.d/mk_arcade_joystick.conf'
 	sudo sh -c 'echo "options mk_arcade_joystick_rpi map=4 gpio=4,17,6,5,19,26,16,24,23,18,15,14,-20,-1,-1,-1,-1,-1,-1,-1,-1 hkmode=2" >> /etc/modprobe.d/mk_arcade_joystick.conf'
 	sudo sh -c 'echo "#this next line is for use with 4 extra buttons (maybe L2,R2,C,Z)" >> /etc/modprobe.d/mk_arcade_joystick.conf'
 	sudo sh -c 'echo "#options mk_arcade_joystick_rpi map=4 gpio=4,17,6,5,19,26,16,24,23,18,15,14,-20,42,43,41,40,-1,-1,-1,-1 hkmode=2" >> /etc/modprobe.d/mk_arcade_joystick.conf'

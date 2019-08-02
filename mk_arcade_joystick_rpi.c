@@ -40,8 +40,6 @@
 #include <asm/io.h>
 
 
-
-
 MODULE_AUTHOR("Matthieu Proucelle (edited for Freeplaytech by Ed Mandy)");
 MODULE_DESCRIPTION("Freeplay GPIO Arcade Joystick Driver");
 MODULE_LICENSE("GPL");
@@ -60,14 +58,14 @@ MODULE_LICENSE("GPL");
 
 #define INP_GPIO(g) *(gpio+((g)/10)) &= ~(7<<(((g)%10)*3))
 #define OUT_GPIO(g) *(gpio+((g)/10)) |=  (1<<(((g)%10)*3))
-#define GPIO_READ(g)  ((g < 32) ? (*(gpio + 13) &= (1<<(g))) : (*(gpio + 14) &= (1<<(g-32))))
+#define GPIO_READ(g)  ((g < 32) ? (*(gpio + 13) &= (1<<(g))) : (*(gpio + 14) &= (1<<(g-32)))) //work >= 32
 
 #define GET_GPIO(g) (*(gpio.addr + BCM2835_GPLEV0/4)&(1<<g)) // 0 if LOW, (1<<g) if HIGH
 
 #define SET_GPIO_ALT(g,a) *(gpio+(((g)/10))) |= (((a)<=3?(a)+4:(a)==4?3:2)<<(((g)%10)*3))
 
-#define GPIO_SET *(gpio+7)
-#define GPIO_CLR *(gpio+10)
+#define GPIO_SET(g)  ((g < 32) ? (*(gpio + 7) = (1<<(g))) : (*(gpio + 8) = (1<<(g-32)))) //work >= 32
+#define GPIO_CLR(g)  ((g < 32) ? (*(gpio + 10) = (1<<(g))) : (*(gpio + 11) = (1<<(g-32)))) //work >= 32
 
 #define BSC1_BASE		(PERI_BASE + 0x804000)
 
@@ -195,6 +193,41 @@ MODULE_PARM_DESC(x2dir, "X2 analog direction");
 module_param_array_named(y2dir, analog_y2_direction_cfg.dir, int, &(analog_y2_direction_cfg.nargs), 0);
 MODULE_PARM_DESC(y2dir, "Y2 analog direction");
 
+
+//force feedback
+struct ff_config { //nns: gpio force feedback support
+	int pins[2];   //gpio pin to use
+	unsigned int nargs;
+};
+
+static struct ff_config ff_cfg __initdata;
+module_param_array_named(ff, ff_cfg.pins, int, &(ff_cfg.nargs), 0);
+MODULE_PARM_DESC(ff, "Force feedback parameters (gpio pin for strong rumble, gpio pin for weak rumble)");
+
+struct ffpwm_config { //nns: pwm force feedback support
+	int params[3];   //gpio pin to use
+	unsigned int nargs;
+};
+
+static struct ffpwm_config ffpwm_cfg __initdata;
+module_param_array_named(ffpwm, ffpwm_cfg.params, int, &(ffpwm_cfg.nargs), 0);
+MODULE_PARM_DESC(ffpwm, "Force feedback PWM parameters, require PCA9633 (PCA9633 adress, output for strong rumble, output for weak rumble)");
+
+bool ff_enable=false; //gpio force feedback enable
+bool ff_pwm_enable=false; //pwm force feedback enable
+struct i2c_client* pca9633_client=NULL; //PCA9633
+int ff_gpio_strong_pin=-1; //rumble strong pin
+int ff_gpio_weak_pin=-1; //rumble weak pin
+int ff_strong_pwm=-1; //rumble strong PCA9633 pwm output
+int ff_weak_pwm=-1; //rumble weak PCA9633 pwm output
+bool ff_strong_pwm_sent=true; //rumble strong pwm already sent via i2c
+bool ff_weak_pwm_sent=true; //rumble weak pwm already sent via i2c
+unsigned int ff_strong_pwm_value=0; //rumble strong PCA9633 pwm value
+unsigned int ff_weak_pwm_value=0; //rumble weak PCA9633 pwm value
+bool ff_effect_strong_running=false; //rumble strong running
+bool ff_effect_weak_running=false; //rumble strong running
+
+
 struct debug_config { //nns: add debug
 	int debug[1];
 	unsigned int nargs;
@@ -251,11 +284,15 @@ struct i2c_client *i2c_new_MCP3021(struct i2c_adapter *adapter, u16 address){
 	return i2c_new_device(adapter, &info);
 }
 
-struct i2c_client *i2c_new_ADS1015(struct i2c_adapter *adapter, u16 address){ //nns: add ads1015 support
+struct i2c_client *i2c_new_ADS1015(struct i2c_adapter *adapter, u16 address){ //nns: add ADS1015 support
 	struct i2c_board_info info = {I2C_BOARD_INFO("ADS1015", address),};
 	return i2c_new_device(adapter, &info);
 }
 
+struct i2c_client *i2c_new_PCA9633(struct i2c_adapter *adapter, u16 address){ //nns: add PCA9633 support
+	struct i2c_board_info info = {I2C_BOARD_INFO("PCA9633", address),};
+	return i2c_new_device(adapter, &info);
+}
 
 struct i2c_adapter* i2c_dev = NULL;
 struct i2c_client* i2c_client_x1 = NULL;
@@ -405,10 +442,12 @@ static void setGpioPullUps(uint32_t pullUps, uint32_t pullUpsHigh){
 }
 
 
-static void setGpioAsInput(int gpioNum){
-	INP_GPIO(gpioNum);
-}
-
+static void setGpioAsInput(int gpioNum){INP_GPIO(gpioNum);} //gpio: set as input
+static void setGpioAsOuput(int gpioNum){OUT_GPIO(gpioNum);} //gpio: set as output
+static void GpioOuputSet(int gpioNum){GPIO_SET(gpioNum);} //gpio: set output high
+static void GpioOuputClr(int gpioNum){GPIO_CLR(gpioNum);} //gpio: set output low
+	
+	
 
 static int getPullUpMask(int gpioMap[], uint32_t *maskLow, uint32_t *maskHigh){
 	int i;
@@ -530,14 +569,8 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data){
 			if(adc_val > x1_max){x1_max = adc_val;} //update x1 analog max value
 			adc_val = ADC_OffsetCenter(4096,adc_val,x1_analog_abs_params.min,x1_analog_abs_params.max,x1_offset); //re-center adc value
 			adc_val = ADC_Deadzone(adc_val,0x000,0xFFF,x1_analog_abs_params.flat); //apply flat value to adc value
-			/*
-			if(auto_center){ //nns: adc value correction
-				adc_val = ADC_OffsetCenter(4096,adc_val,x1_analog_abs_params.min,x1_analog_abs_params.max,x1_offset); //re-center adc value
-				adc_val = ADC_Deadzone(adc_val,0x000,0xFFF,x1_analog_abs_params.flat); //apply flat value to adc value
-			}else{adc_val = ADC_Deadzone(adc_val,x1_analog_abs_params.min,x1_analog_abs_params.max,x1_analog_abs_params.flat);} //apply flat value to adc value using min and max value of the axis
-			*/
 			input_report_abs(dev, ABS_X, adc_val);
-		}else if(debug_mode){printk("mk_arcade_joystick_rpi: failed to read analog X1, returned %i\n",adc_val);} //nns: debug
+		}else if(debug_mode){printk("mk_arcade_joystick_rpi: DEBUG : failed to read analog X1, returned %i\n",adc_val);} //nns: debug
 	}
 	
 	if(y1_enable){
@@ -549,14 +582,8 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data){
 			if(adc_val > y1_max){y1_max = adc_val;} //update y1 analog max value
 			adc_val = ADC_OffsetCenter(4096,adc_val,y1_analog_abs_params.min,y1_analog_abs_params.max,y1_offset); //re-center adc value
 			adc_val = ADC_Deadzone(adc_val,0x000,0xFFF,y1_analog_abs_params.flat); //apply flat value to adc value
-			/*
-			if(auto_center){ //nns: adc value correction
-				adc_val = ADC_OffsetCenter(4096,adc_val,y1_analog_abs_params.min,y1_analog_abs_params.max,y1_offset); //re-center adc value
-				adc_val = ADC_Deadzone(adc_val,0x000,0xFFF,y1_analog_abs_params.flat); //apply flat value to adc value
-			}else{adc_val = ADC_Deadzone(adc_val,y1_analog_abs_params.min,y1_analog_abs_params.max,y1_analog_abs_params.flat);} //apply flat value to adc value using min and max value of the axis
-			*/
 			input_report_abs(dev, ABS_Y, adc_val);
-		}else if(debug_mode){printk("mk_arcade_joystick_rpi: failed to read analog Y1, returned %i\n",adc_val);} //nns: debug
+		}else if(debug_mode){printk("mk_arcade_joystick_rpi: DEBUG : failed to read analog Y1, returned %i\n",adc_val);} //nns: debug
 	}
 	
 	if(x2_enable){
@@ -568,14 +595,8 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data){
 			if(adc_val > x2_max){x2_max = adc_val;} //update x2 analog max value
 			adc_val = ADC_OffsetCenter(4096,adc_val,x2_analog_abs_params.min,x2_analog_abs_params.max,x2_offset); //re-center adc value
 			adc_val = ADC_Deadzone(adc_val,0x000,0xFFF,x2_analog_abs_params.flat); //apply flat value to adc value
-			/*
-			if(auto_center){ //nns: adc value correction
-				adc_val = ADC_OffsetCenter(4096,adc_val,x2_analog_abs_params.min,x2_analog_abs_params.max,x2_offset); //re-center adc value
-				adc_val = ADC_Deadzone(adc_val,0x000,0xFFF,x2_analog_abs_params.flat); //apply flat value to adc value
-			}else{adc_val = ADC_Deadzone(adc_val,x2_analog_abs_params.min,x2_analog_abs_params.max,x2_analog_abs_params.flat);} //apply flat value to adc value using min and max value of the axis
-			*/
 			input_report_abs(dev, ABS_RX, adc_val);
-		}else if(debug_mode){printk("mk_arcade_joystick_rpi: failed to read analog X2, returned %i\n",adc_val);} //nns: debug
+		}else if(debug_mode){printk("mk_arcade_joystick_rpi: DEBUG : failed to read analog X2, returned %i\n",adc_val);} //nns: debug
 	}
 	
 	if(y2_enable){
@@ -587,14 +608,8 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data){
 			if(adc_val > y2_max){y2_max = adc_val;} //update y2 analog max value
 			adc_val = ADC_OffsetCenter(4096,adc_val,y2_analog_abs_params.min,y2_analog_abs_params.max,y2_offset); //re-center adc value
 			adc_val = ADC_Deadzone(adc_val,0x000,0xFFF,y2_analog_abs_params.flat); //apply flat value to adc value
-			/*
-			if(auto_center){ //nns: adc value correction
-				adc_val = ADC_OffsetCenter(4096,adc_val,y2_analog_abs_params.min,y2_analog_abs_params.max,y2_offset); //re-center adc value
-				adc_val = ADC_Deadzone(adc_val,0x000,0xFFF,y2_analog_abs_params.flat); //apply flat value to adc value
-			}else{adc_val = ADC_Deadzone(adc_val,y2_analog_abs_params.min,y2_analog_abs_params.max,y2_analog_abs_params.flat);} //apply flat value to adc value using min and max value of the axis
-			*/
 			input_report_abs(dev, ABS_RY, adc_val);
-		}else if(debug_mode){printk("mk_arcade_joystick_rpi: failed to read analog Y2, returned %i\n",adc_val);} //nns: debug
+		}else if(debug_mode){printk("mk_arcade_joystick_rpi: DEBUG : failed to read analog Y2, returned %i\n",adc_val);} //nns: debug
 	}
 	
 	for (j = 4; j < MK_MAX_BUTTONS; j++){
@@ -602,6 +617,19 @@ static void mk_input_report(struct mk_pad * pad, unsigned char * data){
 	}
 	
 	input_sync(dev);
+	
+	//PWM force feedback, need to be here because i2c_smbus_write_byte_data mess with schedule_delayed_work
+	if(!ff_strong_pwm_sent){ //pwm i2c not already sent
+		if(debug_mode){printk("mk_arcade_joystick_rpi: DEBUG : Feedback effect : PWM Strong : %d\n",ff_strong_pwm_value);}
+		i2c_smbus_write_byte_data(pca9633_client,(uint8_t)(ff_strong_pwm+2),(uint8_t)(ff_strong_pwm_value)); //send pwm to i2c
+		ff_strong_pwm_sent=true; //reset
+	}
+	
+	if(!ff_weak_pwm_sent){ //pwm i2c not already sent
+		if(debug_mode){printk("mk_arcade_joystick_rpi: DEBUG : Feedback effect : PWM Weak : %d\n",ff_weak_pwm_value);}
+		i2c_smbus_write_byte_data(pca9633_client,(uint8_t)(ff_weak_pwm+2),(uint8_t)(ff_weak_pwm_value)); //send pwm to i2c
+		ff_weak_pwm_sent=true; //reset
+	}
 }
 
 
@@ -617,10 +645,39 @@ static void mk_process_packet(struct mk *mk){
 }
 
 
-static void mk_timer(unsigned long private){ //mk_timer() initiates reads of console pads data.
-	struct mk *mk = (void *) private;
-	mk_process_packet(mk);
-	mod_timer(&mk->timer, jiffies + MK_REFRESH_TIME);
+static int mk_ff(struct input_dev *dev, void *data, struct ff_effect *effect){ //nns: handle force feedback effects
+	if(effect->type!=FF_RUMBLE){
+		if(debug_mode){printk("mk_arcade_joystick_rpi: DEBUG : Wrong force feedback effect\n");}
+		return 0;
+	}else{
+		if(effect->u.rumble.strong_magnitude!=0&&!ff_effect_strong_running){ //strong
+			if(debug_mode){printk("mk_arcade_joystick_rpi: DEBUG : Feedback effect : Strong : start\n");}
+			if(pca9633_client!=NULL&&ff_strong_pwm!=-1){ff_strong_pwm_value=effect->u.rumble.strong_magnitude/256; ff_strong_pwm_sent=false;} //pwm
+			if(ff_gpio_strong_pin!=-1){GpioOuputSet(ff_gpio_strong_pin);} //set gpio output high
+			ff_effect_strong_running=true; //running
+		}else{
+			if(debug_mode){printk("mk_arcade_joystick_rpi: DEBUG : Feedback effect : Strong : stop\n");}
+			if(pca9633_client!=NULL&&ff_strong_pwm!=-1){ff_strong_pwm_value=0; ff_strong_pwm_sent=false;} //pwm
+			if(ff_gpio_strong_pin!=-1){GpioOuputClr(ff_gpio_strong_pin);} //set gpio output low
+			ff_effect_strong_running=false; //reset
+		}
+		
+		if(ff_gpio_weak_pin!=-1||ff_weak_pwm!=-1){
+			if(effect->u.rumble.weak_magnitude!=0&&!ff_effect_weak_running){ //weak
+				if(debug_mode){printk("mk_arcade_joystick_rpi: DEBUG : Feedback effect : Weak : start\n");}
+				if(pca9633_client!=NULL&&ff_weak_pwm!=-1){ff_weak_pwm_value=effect->u.rumble.weak_magnitude/256; ff_weak_pwm_sent=false;} //pwm
+				if(ff_gpio_weak_pin!=-1){GpioOuputSet(ff_gpio_weak_pin);} //set gpio output high
+				ff_effect_weak_running=true; //running
+			}else{
+				if(debug_mode){printk("mk_arcade_joystick_rpi: DEBUG : Feedback effect : Weak : stop\n");}
+				if(pca9633_client!=NULL&&ff_weak_pwm!=-1){ff_weak_pwm_value=0; ff_weak_pwm_sent=false;} //pwm
+				if(ff_gpio_weak_pin!=-1){GpioOuputClr(ff_gpio_weak_pin);} //set gpio output low
+				ff_effect_weak_running=false; //reset
+			}
+		}
+		
+		return 1;
+	}
 }
 
 
@@ -637,12 +694,7 @@ static int mk_open(struct input_dev *dev){
 	
 	err = mutex_lock_interruptible(&mk->mutex);
 	if(err){return err;}
-	
-	if(!mk->used++){
-		//mod_timer(&mk->timer, jiffies + MK_REFRESH_TIME);
-		schedule_delayed_work(&mk_delayed_work, MK_REFRESH_TIME);
-	}
-	
+	if(!mk->used++){schedule_delayed_work(&mk_delayed_work, MK_REFRESH_TIME);}
 	mutex_unlock(&mk->mutex);
 	return 0;
 }
@@ -652,12 +704,7 @@ static void mk_close(struct input_dev *dev){
 	struct mk *mk = input_get_drvdata(dev);
 	
 	mutex_lock(&mk->mutex);
-	
-	if(!--mk->used){
-		//del_timer_sync(&mk->timer);
-		cancel_delayed_work_sync(&mk_delayed_work);
-	}
-	
+	if(!--mk->used){cancel_delayed_work_sync(&mk_delayed_work);}
 	mutex_unlock(&mk->mutex);
 }
 
@@ -710,7 +757,7 @@ static int __init mk_setup_pad(struct mk *mk, int idx, int pad_type_arg){
 	snprintf(pad->phys, sizeof (pad->phys), "input%d", idx);
 	
 	if(debug_mode){pr_err("Running in Debug mode\n");}
-
+	
 	input_dev->name = mk_names[pad_type];
 	input_dev->phys = pad->phys;
 	input_dev->id.bustype = BUS_PARPORT;
@@ -758,41 +805,11 @@ static int __init mk_setup_pad(struct mk *mk, int idx, int pad_type_arg){
 		input_set_abs_params(input_dev, ABS_Y, -1, 1, 0, 0);
 	}
 	
-	/*
-	MCP3221 is 12-bit, MCP3021 is 10-bit, but both report as 12-bits
-	values from testing PSP 1000 stick on 3021:
-	[ 1013.444203] mk_arcade_joystick_rpi: x1 min value: 0x01F6
-	[ 1013.444206] mk_arcade_joystick_rpi: x1 max value: 0x0D38
-	[ 1013.444248] mk_arcade_joystick_rpi: y1 min value: 0x0142
-	[ 1013.444250] mk_arcade_joystick_rpi: y1 max value: 0x0CF8
-	
-	nns:
-	[  +0.000103] mk_arcade_joystick_rpi: x1 min value: 0x0176
-	[  +0.000006] mk_arcade_joystick_rpi: x1 max value: 0x0D5A
-	[  +0.000079] mk_arcade_joystick_rpi: y1 min value: 0x0205
-	[  +0.000005] mk_arcade_joystick_rpi: y1 max value: 0x0D32
-	*/
-	
 	//i2c ADC
 	if(x1_enable){input_set_abs_params(input_dev, ABS_X, 0x000, 0xFFF, x1_analog_abs_params.fuzz, x1_analog_abs_params.flat);} //nns: parameters for center offcenter values
 	if(y1_enable){input_set_abs_params(input_dev, ABS_Y, 0x000, 0xFFF, y1_analog_abs_params.fuzz, y1_analog_abs_params.flat);} //nns: parameters for center offcenter values
 	if(x2_enable){input_set_abs_params(input_dev, ABS_RX, 0x000, 0xFFF, x2_analog_abs_params.fuzz, x2_analog_abs_params.flat);} //nns: parameters for center offcenter values
 	if(y2_enable){input_set_abs_params(input_dev, ABS_RY, 0x000, 0xFFF, y2_analog_abs_params.fuzz, y2_analog_abs_params.flat);} //nns: parameters for center offcenter values
-	
-	/*
-	if(auto_center){
-		if(x1_enable){input_set_abs_params(input_dev, ABS_X, 0x000, 0xFFF, x1_analog_abs_params.fuzz, x1_analog_abs_params.flat);} //nns: parameters for center offcenter values
-		if(y1_enable){input_set_abs_params(input_dev, ABS_Y, 0x000, 0xFFF, y1_analog_abs_params.fuzz, y1_analog_abs_params.flat);} //nns: parameters for center offcenter values
-		if(x2_enable){input_set_abs_params(input_dev, ABS_RX, 0x000, 0xFFF, x2_analog_abs_params.fuzz, x2_analog_abs_params.flat);} //nns: parameters for center offcenter values
-		if(y2_enable){input_set_abs_params(input_dev, ABS_RY, 0x000, 0xFFF, y2_analog_abs_params.fuzz, y2_analog_abs_params.flat);} //nns: parameters for center offcenter values
-	}else{
-		//void input_set_abs_params(struct input_dev *dev, unsigned int axis,int min, int max, int fuzz, int flat)
-		if(x1_enable){input_set_abs_params(input_dev, ABS_X, x1_analog_abs_params.min, x1_analog_abs_params.max, x1_analog_abs_params.fuzz, x1_analog_abs_params.flat);}
-		if(y1_enable){input_set_abs_params(input_dev, ABS_Y, y1_analog_abs_params.min, y1_analog_abs_params.max, y1_analog_abs_params.fuzz, y1_analog_abs_params.flat);}
-		if(x2_enable){input_set_abs_params(input_dev, ABS_RX, x2_analog_abs_params.min, x2_analog_abs_params.max, x2_analog_abs_params.fuzz, x2_analog_abs_params.flat);}
-		if(y2_enable){input_set_abs_params(input_dev, ABS_RY, y2_analog_abs_params.min, y2_analog_abs_params.max, y2_analog_abs_params.fuzz, y2_analog_abs_params.flat);}
-	}*/
-	
 	
 	for (i = 0; i < MK_MAX_BUTTONS - 4; i++){
 		if(pad->gpio_maps[i+4] != -1){__set_bit(mk_arcade_gpio_btn[i], input_dev->keybit);}
@@ -813,7 +830,23 @@ static int __init mk_setup_pad(struct mk *mk, int idx, int pad_type_arg){
 	getPullUpMask(pad->gpio_maps, &pullUpMaskLow, &pullUpMaskHigh);
 	
 	setGpioPullUps(pullUpMaskLow, pullUpMaskHigh);
-	printk("GPIO configured for pad%d\n", idx);
+	printk("mk_arcade_joystick_rpi: GPIO configured for pad%d\n", idx);
+	
+	if(ff_enable){ //nns: force feedback support
+		int ff_err;
+		input_set_capability(pad->dev, EV_FF, FF_RUMBLE);
+		ff_err=input_ff_create_memless(pad->dev, NULL, mk_ff);
+		if(ff_err){
+			printk("mk_arcade_joystick_rpi: Failed to create force feedback device : %d",ff_err);
+		}else{
+			printk("mk_arcade_joystick_rpi: Force feedback : Strong GPIO pin : %d\n", ff_gpio_strong_pin);
+			setGpioAsInput(ff_gpio_strong_pin); setGpioAsOuput(ff_gpio_strong_pin); //set pin as output, need to be set as input first
+			if(ff_gpio_weak_pin!=-1){
+				printk("mk_arcade_joystick_rpi: Force feedback : Weak GPIO pin : %d\n", ff_gpio_weak_pin);
+				setGpioAsInput(ff_gpio_weak_pin); setGpioAsOuput(ff_gpio_weak_pin); //set pin as output, need to be set as input first
+			}
+		}
+	}
 	
 	err = input_register_device(pad->dev);
 	if(err){goto err_free_dev;}
@@ -935,6 +968,17 @@ static int __init mk_init(void){
 		if(analog_y2_direction_cfg.dir[0]<0){y2_reverse=true;} //nns:direction reversed
 	}
 	
+	if(ff_cfg.nargs > 0){ //nns: force feedback support
+		ff_enable=true;
+		ff_gpio_strong_pin=abs(ff_cfg.pins[0]); //ff strong pin
+		if(ff_cfg.nargs > 1){ff_gpio_weak_pin=abs(ff_cfg.pins[1]);} //ff weak pin
+	}
+	
+	if(ffpwm_cfg.nargs > 1){ //nns: pwm force feedback support
+		ff_pwm_enable=true;
+		ff_strong_pwm=abs(ffpwm_cfg.params[1]); //ff strong pwm output
+		if(ffpwm_cfg.nargs > 2){ff_weak_pwm=abs(ffpwm_cfg.params[2]);} //ff weak pwm output
+	}
 	
 	x1_analog_abs_params.min = ABS_PARAMS_DEFAULT_X_MIN; //x1 analog default min value for input_set_abs_params
 	x1_analog_abs_params.max = ABS_PARAMS_DEFAULT_X_MAX; //x1 analog default max value for input_set_abs_params
@@ -1124,7 +1168,7 @@ static int __init mk_init(void){
 						x1_enable = true;
 					}else{
 						printk("mk_arcade_joystick_rpi: X1 failed, disabled\n");
-						if(debug_mode){printk("mk_arcade_joystick_rpi: returned %i\n",value);}
+						if(debug_mode){printk("mk_arcade_joystick_rpi: DEBUG : returned %i\n",value);}
 						ads1015_lookup[0]=-1;
 					}
 				}
@@ -1208,6 +1252,20 @@ static int __init mk_init(void){
 					printk("mk_arcade_joystick_rpi: Y2 offset: %d\n", y2_offset);
 				}
 			}
+			
+			if(ff_pwm_enable){ //nns: add PCA9633 support for force feedback
+				pca9633_client = i2c_new_PCA9633(i2c_dev, ffpwm_cfg.params[0]);
+				if(pca9633_client){
+					printk("mk_arcade_joystick_rpi: PCA9633 assigned to I2C address 0x%02X\n", ffpwm_cfg.params[0]);
+					value = i2c_smbus_read_word_swapped(pca9633_client, 0);
+					if(value & 0x8000){
+						printk("mk_arcade_joystick_rpi: PCA9633 chip not found\n");
+						i2c_unregister_device(pca9633_client);
+						pca9633_client = NULL;
+						ff_pwm_enable=false;
+					}
+				}else{ff_pwm_enable=false;}
+			}
 		}else{
 			printk("mk_arcade_joystick_rpi ERROR: I2C bus %d NOT opened (make sure that I2C is enabled and loaded before this driver)\n", i2cbus_cfg.busnum[0]);
 		}
@@ -1217,7 +1275,7 @@ static int __init mk_init(void){
 		pr_err("at least one device must be specified\n");
 		return -EINVAL;
 	}else{
-		mk_base = mk_probe(mk_cfg.args, mk_cfg.nargs);
+		mk_base = mk_probe(mk_cfg.args, mk_cfg.nargs); //jump
 		if(IS_ERR(mk_base)){return -ENODEV;}
 	}
 	
@@ -1254,6 +1312,8 @@ static void __exit mk_exit(void){
 		printk("mk_arcade_joystick_rpi: Y2 min value: %d (0x%04X)\n", y2_min, y2_min);
 		printk("mk_arcade_joystick_rpi: Y2 max value: %d (0x%04X)\n", y2_max, y2_max);
 	}
+	
+	if(ff_pwm_enable){i2c_unregister_device(pca9633_client);} //nns: add PCA9633 support
 	
 	iounmap(gpio);
 }

@@ -213,8 +213,18 @@ static struct ffpwm_config ffpwm_cfg __initdata;
 module_param_array_named(ffpwm, ffpwm_cfg.params, int, &(ffpwm_cfg.nargs), 0);
 MODULE_PARM_DESC(ffpwm, "Force feedback PWM parameters, require PCA9633 (PCA9633 adress, output for strong rumble, output for weak rumble)");
 
+struct ffdir_config { //nns: gpio force feedback direction support
+	int pins[2];   //gpio pin to use
+	unsigned int nargs;
+};
+
+static struct ffdir_config ffdir_cfg __initdata;
+module_param_array_named(ffdir, ffdir_cfg.pins, int, &(ffdir_cfg.nargs), 0);
+MODULE_PARM_DESC(ffdir, "Force feedback direction parameters (gpio pin for strong rumble, gpio pin for weak rumble)");
+
 bool ff_enable=false; //gpio force feedback enable
 bool ff_pwm_enable=false; //pwm force feedback enable
+bool ff_dir_enable=false; //force feedback direction enable
 struct i2c_client* pca9633_client=NULL; //PCA9633
 int ff_gpio_strong_pin=-1; //rumble strong pin
 int ff_gpio_weak_pin=-1; //rumble weak pin
@@ -226,6 +236,8 @@ unsigned int ff_strong_pwm_value=0; //rumble strong PCA9633 pwm value
 unsigned int ff_weak_pwm_value=0; //rumble weak PCA9633 pwm value
 bool ff_effect_strong_running=false; //rumble strong running
 bool ff_effect_weak_running=false; //rumble strong running
+int ff_gpio_dir_pin=-1; //rumble direction pin
+unsigned int ff_effect_dir=0; //rumble direction
 
 
 struct debug_config { //nns: add debug
@@ -676,6 +688,16 @@ static int mk_ff(struct input_dev *dev, void *data, struct ff_effect *effect){ /
 			}
 		}
 		
+		if(ff_dir_enable){ //direction is set for both strong and week motor at the same time
+			ff_effect_dir=effect->direction; //https://elixir.bootlin.com/linux/latest/source/include/uapi/linux/input.h#L443
+			if(ff_effect_dir<16384||ff_effect_dir>49152){ //assume value under left/over right as down
+				if(debug_mode){printk("mk_arcade_joystick_rpi: DEBUG : Feedback effect : Direction : Down (%d)\n",ff_effect_dir);}
+				GpioOuputSet(ff_gpio_dir_pin); //set gpio output high
+			}else{ //assume as up
+				if(debug_mode){printk("mk_arcade_joystick_rpi: DEBUG : Feedback effect : Direction : Up (%d)\n",ff_effect_dir);}
+				GpioOuputClr(ff_gpio_dir_pin); //set gpio output low
+			}
+		}
 		return 1;
 	}
 }
@@ -845,6 +867,11 @@ static int __init mk_setup_pad(struct mk *mk, int idx, int pad_type_arg){
 				printk("mk_arcade_joystick_rpi: Force feedback : Weak GPIO pin : %d\n", ff_gpio_weak_pin);
 				setGpioAsInput(ff_gpio_weak_pin); setGpioAsOuput(ff_gpio_weak_pin); //set pin as output, need to be set as input first
 			}
+			
+			if(ff_dir_enable){ //direction
+				printk("mk_arcade_joystick_rpi: Force feedback : Direction GPIO pin : %d\n", ff_gpio_dir_pin);
+				setGpioAsInput(ff_gpio_dir_pin); setGpioAsOuput(ff_gpio_dir_pin); //set pin as output, need to be set as input first
+			}
 		}
 	}
 	
@@ -978,6 +1005,11 @@ static int __init mk_init(void){
 		ff_pwm_enable=true;
 		ff_strong_pwm=abs(ffpwm_cfg.params[1]); //ff strong pwm output
 		if(ffpwm_cfg.nargs > 2){ff_weak_pwm=abs(ffpwm_cfg.params[2]);} //ff weak pwm output
+	}
+	
+	if(ffdir_cfg.nargs > 0){ //nns: force feedback direction support
+		ff_dir_enable=true;
+		ff_gpio_dir_pin=abs(ffdir_cfg.pins[0]); //ff direction pin
 	}
 	
 	x1_analog_abs_params.min = ABS_PARAMS_DEFAULT_X_MIN; //x1 analog default min value for input_set_abs_params

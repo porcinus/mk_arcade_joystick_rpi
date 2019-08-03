@@ -220,7 +220,7 @@ struct ffdir_config { //nns: gpio force feedback direction support
 
 static struct ffdir_config ffdir_cfg __initdata;
 module_param_array_named(ffdir, ffdir_cfg.pins, int, &(ffdir_cfg.nargs), 0);
-MODULE_PARM_DESC(ffdir, "Force feedback direction parameters (gpio pin for strong rumble, gpio pin for weak rumble)");
+MODULE_PARM_DESC(ffdir, "Force feedback direction parameters (gpio pin for rumble direction)");
 
 bool ff_enable=false; //gpio force feedback enable
 bool ff_pwm_enable=false; //pwm force feedback enable

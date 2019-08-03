@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-declare CURR_VER=0.1.6.0
+declare CURR_VER=0.1.6.1
 declare -a MK_VERS=(`ls /usr/src | grep mk_arcade_joystick_rpi | sort -n -r | cut -d '-' -f 2`)
 
 sudo modprobe -r mk_arcade_joystick_rpi
@@ -63,15 +63,15 @@ sudo g++ mk_joystick_config.cpp -o mk_joystick_config -lpthread -lwiringPi
 if [ -e mk_joystick_config ]; then
 	echo "Success."
 	
-	sudo cp retropiemenu/mk_joystick_config.png /home/pi/RetroPie/retropiemenu/icons/mk_joystick_config.png
-	sudo cp retropiemenu/mk_joystick_config.sh /home/pi/RetroPie/retropiemenu/mk_joystick_config.sh
+#	sudo cp retropiemenu/mk_joystick_config.png /home/pi/RetroPie/retropiemenu/icons/mk_joystick_config.png
+#	sudo cp retropiemenu/mk_joystick_config.sh /home/pi/RetroPie/retropiemenu/mk_joystick_config.sh
 		
-	if grep -q -e "mk_joystick_config.sh" /opt/retropie/configs/all/emulationstation/gamelists/retropie/gamelist.xml ; then
-		echo "Retropie gamelist.xml already contain mk_joystick_config item"
-	else
-		echo "Adding mk_joystick_config item to Retropie gamelist.xml"
-	  sudo sed -i 's|</gameList>|\t<game>\n\t\t<path>./mk_joystick_config.sh</path>\n\t\t<name>Freeplay GPIO Driver Configurator</name>\n\t\t<desc>Allow end user to create its own GPIO driver configuration.</desc>\n\t\t<image>./icons/mk_joystick_config.png</image>\n\t</game>\n</gameList>|' /opt/retropie/configs/all/emulationstation/gamelists/retropie/gamelist.xml
-	fi
+#	if grep -q -e "mk_joystick_config.sh" /opt/retropie/configs/all/emulationstation/gamelists/retropie/gamelist.xml ; then
+#		echo "Retropie gamelist.xml already contain mk_joystick_config item"
+#	else
+#		echo "Adding mk_joystick_config item to Retropie gamelist.xml"
+#	  sudo sed -i 's|</gameList>|\t<game>\n\t\t<path>./mk_joystick_config.sh</path>\n\t\t<name>Freeplay GPIO Driver Configurator</name>\n\t\t<desc>Allow end user to create its own GPIO driver configuration.</desc>\n\t\t<image>./icons/mk_joystick_config.png</image>\n\t</game>\n</gameList>|' /opt/retropie/configs/all/emulationstation/gamelists/retropie/gamelist.xml
+#	fi
 	
 else
 	echo "Failed."

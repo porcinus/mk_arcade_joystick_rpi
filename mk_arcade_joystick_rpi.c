@@ -324,7 +324,7 @@ struct debug_config { //nns: add debug
 
 static struct debug_config debug_config_cfg __initdata;
 module_param_array_named(debug, debug_config_cfg.debug, int, &(debug_config_cfg.nargs), 0);
-MODULE_PARM_DESC(debug, "Debug stuff");
+MODULE_PARM_DESC(debug, "Debug level, 0:disable, 1:event, 2:loop");
 unsigned int debug_mode=0; //debug level, 0:disable, 1:event, 2:loop
 unsigned int benchmark_maxloop=200; //loop count before report
 unsigned int benchmark_loop=0; //loop count

@@ -3,7 +3,7 @@ NNS @ 2019
 mk_joystick_config
 Allow user to create new configuration file for mk_arcade_joystick_rpi Analog/GPIO controller driver.
 */
-const char programversion[]="0.1b"; //program version
+const char programversion[]="0.1c"; //program version
 
 #include <fcntl.h> //file io
 #include <stdio.h> //stream io
@@ -66,6 +66,7 @@ int adc_max[] = {-1,-1,-1,-1,-1,-1,-1,-1}; //store adc max value
 int adc_reverse[] = {1,1,1,1,1,1,1,1}; //store reverse value: -1=reverse, 1=not reverse
 int adc_skip[] = {1,1,1,1,1,1,1,1}; //use to avoid user to use same adc chip for 2 axis
 int adc_skipbackup[] = {1,1,1,1,1,1,1,1}; //backup of the previous variable
+int adc_tmp = 0; //backup of the axis reversal
 long adc_delta[] = {0,0,0,0,0,0,0,0}; //use to detect adc-axis correspondance
 int adc_maxnoise=60; //use to detect if nothing connected ot input pin
 int adc_val_tmp=0; //store current adc value
@@ -223,6 +224,7 @@ void *adc_routine(void *){ //ADC input thread routine
 		}else if(adc_user&&adc_calibration_done){ // user selected right adc type and calibration done
 			if(adc_ads1015){ADS1015_read(adc_address_ads1015); //read ads1015 values
 			}else if(adc_mcp3021){ //mcp3021 use
+				if(debug){printf("\r");} //debug
 				for(loop=0;loop<adc_address_count;loop++){ //read loop
 					if(adc_address[loop]!=-1){MCP3021_read(adc_address[loop],loop);} //read mcp3021 value
 				}
@@ -250,7 +252,7 @@ void MCP3021_read(int addr,int index){ //function to read MCP3021 values
 		if(adc_val_tmp<adc_min[index]){adc_min[index]=adc_val_tmp;} //update min value
 		if(adc_max[index]==-1){adc_max[index]=adc_val_tmp;} //set max value if not set
 		if(adc_val_tmp>adc_max[index]){adc_max[index]=adc_val_tmp;} //update max value
-		//if(debug){printf("%04d (min: %04d,center: %04d,max: %04d)",adc_val_tmp,adc_min[index],adc_center[index],adc_max[index]);} //debug
+		if(debug){printf("%04d (min: %04d,center: %04d,max: %04d) , ",adc_val_tmp,adc_min[index],adc_center[index],adc_max[index]);} //debug
 	}else{return ;}
 }
 
@@ -551,7 +553,7 @@ int main(int argc, char *argv[]){ //main
 			for(tmploop=0;tmploop<adc_address_count;tmploop++){adc_min[tmploop]=-1;adc_max[tmploop]=-1;} //reset min/max
 			
 			if(adc_mapping[0]>-1&&adc_mapping[1]>-1){ //x1 and y1 defined
-				printf("\033[2K\r\033[1mMove analogs all around to there limits\033[0m then press \033[92m(A)\033[0m");
+				printf("\033[2K\r\033[1mSlightly move analogs to their edges\033[0m then press \033[92m(A)\033[0m");
 				
 				retry=true;
 				while(retry){
@@ -703,17 +705,29 @@ int main(int argc, char *argv[]){ //main
 			
 			if(adc_reverse[adc_mapping[0]]<1){
 				sprintf(text_config_buffer, " x1dir=%d",-1); strcat(text_config,text_config_buffer); //x1dir
-				sprintf(text_config_buffer, " x1params=%d,%d,16,300",4096-adc_min[adc_mapping[0]],4096-adc_max[adc_mapping[0]]); strcat(text_config,text_config_buffer); //x1params
-			}else{
-				sprintf(text_config_buffer, " x1params=%d,%d,16,300",adc_min[adc_mapping[0]],adc_max[adc_mapping[0]]); strcat(text_config,text_config_buffer); //x1params
+				adc_min[adc_mapping[0]]=4096-adc_min[adc_mapping[0]];
+				adc_max[adc_mapping[0]]=4096-adc_max[adc_mapping[0]];
 			}
-				
+			
+			if(adc_min[adc_mapping[0]]>adc_max[adc_mapping[0]]){ //min need to be under max value
+				adc_tmp=adc_min[adc_mapping[0]]; //backup
+				adc_min[adc_mapping[0]]=adc_max[adc_mapping[0]]; adc_max[adc_mapping[0]]=adc_tmp; //swap
+			}
+			
+			sprintf(text_config_buffer, " x1params=%d,%d,16,300",adc_min[adc_mapping[0]],adc_max[adc_mapping[0]]); strcat(text_config,text_config_buffer); //x1params
+			
 			if(adc_reverse[adc_mapping[1]]<1){
 				sprintf(text_config_buffer, " y1dir=%d",-1); strcat(text_config,text_config_buffer); //y1dir
-				sprintf(text_config_buffer, " y1params=%d,%d,16,300",4096-adc_min[adc_mapping[1]],4096-adc_max[adc_mapping[1]]); strcat(text_config,text_config_buffer); //y1params
-			}else{
-				sprintf(text_config_buffer, " y1params=%d,%d,16,300",adc_min[adc_mapping[1]],adc_max[adc_mapping[1]]); strcat(text_config,text_config_buffer); //y1params
+				adc_min[adc_mapping[1]]=4096-adc_min[adc_mapping[1]];
+				adc_max[adc_mapping[1]]=4096-adc_max[adc_mapping[1]];
 			}
+			
+			if(adc_min[adc_mapping[1]]>adc_max[adc_mapping[1]]){ //min need to be under max value
+				adc_tmp=adc_min[adc_mapping[0]]; //backup
+				adc_min[adc_mapping[1]]=adc_max[adc_mapping[1]]; adc_max[adc_mapping[1]]=adc_tmp; //swap
+			}
+			
+			sprintf(text_config_buffer, " y1params=%d,%d,16,300",adc_min[adc_mapping[1]],adc_max[adc_mapping[1]]); strcat(text_config,text_config_buffer); //y1params
 		}
 		
 		if(adc_mapping[2]>-1&&adc_mapping[3]>-1){ //x2 and y2 defined
@@ -722,17 +736,29 @@ int main(int argc, char *argv[]){ //main
 			
 			if(adc_reverse[adc_mapping[2]]<1){
 				sprintf(text_config_buffer, " x2dir=%d",-1); strcat(text_config,text_config_buffer); //x2dir
-				sprintf(text_config_buffer, " x2params=%d,%d,16,300",4096-adc_min[adc_mapping[2]],4096-adc_max[adc_mapping[2]]); strcat(text_config,text_config_buffer); //x2params
-			}else{
-				sprintf(text_config_buffer, " x2params=%d,%d,16,300",adc_min[adc_mapping[2]],adc_max[adc_mapping[2]]); strcat(text_config,text_config_buffer); //x2params
+				adc_min[adc_mapping[2]]=4096-adc_min[adc_mapping[2]];
+				adc_max[adc_mapping[2]]=4096-adc_max[adc_mapping[2]];
 			}
-				
+			
+			if(adc_min[adc_mapping[2]]>adc_max[adc_mapping[2]]){ //min need to be under max value
+				adc_tmp=adc_min[adc_mapping[2]]; //backup
+				adc_min[adc_mapping[2]]=adc_max[adc_mapping[2]]; adc_max[adc_mapping[2]]=adc_tmp; //swap
+			}
+			
+			sprintf(text_config_buffer, " x2params=%d,%d,16,300",adc_min[adc_mapping[2]],adc_max[adc_mapping[2]]); strcat(text_config,text_config_buffer); //x2params
+			
 			if(adc_reverse[adc_mapping[3]]<1){
 				sprintf(text_config_buffer, " y2dir=%d",-1); strcat(text_config,text_config_buffer); //y2dir
-				sprintf(text_config_buffer, " y2params=%d,%d,16,300",4096-adc_min[adc_mapping[3]],4096-adc_max[adc_mapping[3]]); strcat(text_config,text_config_buffer); //y2params
-			}else{
-				sprintf(text_config_buffer, " y2params=%d,%d,16,300",adc_min[adc_mapping[3]],adc_max[adc_mapping[3]]); strcat(text_config,text_config_buffer); //y2params
+				adc_min[adc_mapping[3]]=4096-adc_min[adc_mapping[3]];
+				adc_max[adc_mapping[3]]=4096-adc_max[adc_mapping[3]];
 			}
+			
+			if(adc_min[adc_mapping[3]]>adc_max[adc_mapping[3]]){ //min need to be under max value
+				adc_tmp=adc_min[adc_mapping[3]]; //backup
+				adc_min[adc_mapping[3]]=adc_max[adc_mapping[3]]; adc_max[adc_mapping[3]]=adc_tmp; //swap
+			}
+			
+			sprintf(text_config_buffer, " y2params=%d,%d,16,300",adc_min[adc_mapping[3]],adc_max[adc_mapping[3]]); strcat(text_config,text_config_buffer); //y2params
 		}
 	}
 	

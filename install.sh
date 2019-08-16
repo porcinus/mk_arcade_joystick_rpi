@@ -4,11 +4,12 @@ declare CURR_VER=0.1.6.1
 declare -a MK_VERS=(`ls /usr/src | grep mk_arcade_joystick_rpi | sort -n -r | cut -d '-' -f 2`)
 
 sudo modprobe -r mk_arcade_joystick_rpi
-sudo rm -rf /usr/src/mk_arcade_joystick_rpi-*
 
 for MK_VER_NUM in "${MK_VERS[@]}"; do
 	sudo dkms remove -m mk_arcade_joystick_rpi -v $MK_VER_NUM --all
 done
+
+sudo rm -rf /usr/src/mk_arcade_joystick_rpi-*
 
 sudo mkdir /usr/src/mk_arcade_joystick_rpi-$CURR_VER
 sudo cp -a * /usr/src/mk_arcade_joystick_rpi-$CURR_VER/
@@ -27,6 +28,14 @@ fi
 
 if [ -e "/etc/modprobe.d/mk_arcade_joystick.conf" ] && grep -q -e "^options mk_arcade_joystick_rpi" /etc/modprobe.d/mk_arcade_joystick.conf ; then
 	echo "/etc/modprobe.d/mk_arcade_joystick.conf exists and contains options for mk_arcade_joystick_rpi"
+	if grep -q -e "v0.1.5.10+" /etc/modprobe.d/mk_arcade_joystick.conf ; then
+		echo "Already contain lines for v0.1.5.10+ of the driver"
+	else
+		echo "Adding lines for v0.1.5.10+ of the driver"
+		sudo sh -c 'echo "" >> /etc/modprobe.d/mk_arcade_joystick.conf'
+		sudo sh -c 'echo "##### Options below this line are for v0.1.5.10+ of the driver.  Options above this may not function." >> /etc/modprobe.d/mk_arcade_joystick.conf'
+		sudo sh -c 'echo "#options mk_arcade_joystick_rpi map=4 gpio=4,17,6,5,19,26,16,24,23,18,15,14,-20,-1,-1,-1,-1,-1,-1,-1,-1 hkmode=2" >> /etc/modprobe.d/mk_arcade_joystick.conf'
+	fi
 	sudo sh -c 'echo "##### Options below this line are for v0.1.5.10 of the driver.  Options above this may not function." >> /etc/modprobe.d/mk_arcade_joystick.conf'
 	sudo sh -c 'echo "#options mk_arcade_joystick_rpi map=4 gpio=4,17,6,5,19,26,16,24,23,18,15,14,-20,-1,-1,-1,-1,-1,-1,-1,-1 hkmode=2" >> /etc/modprobe.d/mk_arcade_joystick.conf'
 else

@@ -872,23 +872,26 @@ static int __init mk_setup_pad(struct mk *mk, int idx, int pad_type_arg){
 	setGpioPullUps(pullUpMaskLow, pullUpMaskHigh);
 	printk("mk_arcade_joystick_rpi: GPIO configured for pad%d\n", idx);
 	
-	if(ff_enable){ //nns: force feedback support
+	if(ff_enable||ff_pwm_enable){ //nns: force feedback support
 		int ff_err;
 		input_set_capability(pad->dev, EV_FF, FF_RUMBLE);
 		ff_err=input_ff_create_memless(pad->dev, NULL, mk_ff);
 		if(ff_err){
 			printk("mk_arcade_joystick_rpi: Failed to create force feedback device : %d",ff_err);
 		}else{
-			printk("mk_arcade_joystick_rpi: Force feedback : Strong GPIO pin : %d\n", ff_gpio_strong_pin);
-			setGpioAsInput(ff_gpio_strong_pin); setGpioAsOuput(ff_gpio_strong_pin); //set pin as output, need to be set as input first
-			if(ff_gpio_weak_pin!=-1){
-				printk("mk_arcade_joystick_rpi: Force feedback : Weak GPIO pin : %d\n", ff_gpio_weak_pin);
-				setGpioAsInput(ff_gpio_weak_pin); setGpioAsOuput(ff_gpio_weak_pin); //set pin as output, need to be set as input first
-			}
-			
-			if(ff_dir_enable){ //direction
-				printk("mk_arcade_joystick_rpi: Force feedback : Direction GPIO pin : %d\n", ff_gpio_dir_pin);
-				setGpioAsInput(ff_gpio_dir_pin); setGpioAsOuput(ff_gpio_dir_pin); //set pin as output, need to be set as input first
+			printk("mk_arcade_joystick_rpi: Force feedback device created");
+			if(ff_enable){
+				printk("mk_arcade_joystick_rpi: Force feedback : Strong GPIO pin : %d\n", ff_gpio_strong_pin);
+				setGpioAsInput(ff_gpio_strong_pin); setGpioAsOuput(ff_gpio_strong_pin); //set pin as output, need to be set as input first
+				if(ff_gpio_weak_pin!=-1){
+					printk("mk_arcade_joystick_rpi: Force feedback : Weak GPIO pin : %d\n", ff_gpio_weak_pin);
+					setGpioAsInput(ff_gpio_weak_pin); setGpioAsOuput(ff_gpio_weak_pin); //set pin as output, need to be set as input first
+				}
+				
+				if(ff_dir_enable){ //direction
+					printk("mk_arcade_joystick_rpi: Force feedback : Direction GPIO pin : %d\n", ff_gpio_dir_pin);
+					setGpioAsInput(ff_gpio_dir_pin); setGpioAsOuput(ff_gpio_dir_pin); //set pin as output, need to be set as input first
+				}
 			}
 		}
 	}
@@ -1310,6 +1313,8 @@ static int __init mk_init(void){
 				if(pca9633_client){
 					printk("mk_arcade_joystick_rpi: PCA9633 assigned to I2C address 0x%02X\n", ffpwm_cfg.params[0]);
 					value = i2c_smbus_read_word_swapped(pca9633_client, 0);
+					if(ff_strong_pwm!=-1){printk("mk_arcade_joystick_rpi: Strong PWM output : %d\n", ff_strong_pwm);}
+					if(ff_weak_pwm!=-1){printk("mk_arcade_joystick_rpi: Weak PWM output : %d\n", ff_weak_pwm);}
 					if(value & 0x8000){
 						printk("mk_arcade_joystick_rpi: PCA9633 chip not found\n");
 						i2c_unregister_device(pca9633_client);

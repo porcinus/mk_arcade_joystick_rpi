@@ -900,6 +900,8 @@ static int __init mk_setup_pad(struct mk *mk, int idx, int pad_type_arg){
 		ff_err=input_ff_create_memless(pad->dev, NULL, mk_ff);
 		if(ff_err){
 			printk("mk_arcade_joystick_rpi: Failed to create force feedback device : %d",ff_err);
+			ff_enable=false;
+			ff_pwm_enable=false;
 		}else{
 			printk("mk_arcade_joystick_rpi: Force feedback device created");
 			if(ff_enable){
@@ -1370,12 +1372,18 @@ static int __init mk_init(void){
 						i2c_smbus_write_byte_data(pca9633_client,(uint8_t)0x08,(uint8_t)pca9633_ledout); //send ledout to i2c
 						printk("mk_arcade_joystick_rpi: PCA9633 LEDOUT : 0x%02X (initial), 0x%02X (new)\n",pca9633_ledout_backup,pca9633_ledout);
 					}
-				}else{ff_pwm_enable=false;}
+				}else{
+					printk("mk_arcade_joystick_rpi: PCA9633 : Failed to assign I2C address 0x%02X\n", ffpwm_cfg.params[0]);
+					ff_pwm_enable=false;
+				}
 			}
 		}else{
 			printk("mk_arcade_joystick_rpi ERROR: I2C bus %d NOT opened (make sure that I2C is enabled and loaded before this driver)\n", i2cbus_cfg.busnum[0]);
 		}
+	}else{
+		ff_pwm_enable=false; //nns: disable pwm force feedback is no I2C bus set
 	}
+	
 	
 	if(mk_cfg.nargs < 1){
 		pr_err("at least one device must be specified\n");
@@ -1393,29 +1401,29 @@ static void __exit mk_exit(void){
 	
 	printk("mk_arcade_joystick_rpi: Exiting\n");
 	
-	if(ads1015_enable){i2c_unregister_device(i2c_client_x1);} //nns: add ads1015 support
+	if(ads1015_enable && i2c_client_x1 != NULL){i2c_unregister_device(i2c_client_x1);} //nns: add ads1015 support
 	
 	if(x1_enable){
-		if(!ads1015_enable){i2c_unregister_device(i2c_client_x1);}
+		if(!ads1015_enable && i2c_client_x1 != NULL){i2c_unregister_device(i2c_client_x1);}
 		printk("mk_arcade_joystick_rpi: X1 limits : min: %d (0x%04X), max: %d (0x%04X) : x1params=%d,%d,%d,%d\n", x1_min, x1_min, x1_max, x1_max   ,x1_min,x1_max,x1_analog_abs_params.fuzz,x1_analog_abs_params.flat); //nns: add config format
 	}
 	
 	if(y1_enable){
-		if(!ads1015_enable){i2c_unregister_device(i2c_client_y1);}
+		if(!ads1015_enable && i2c_client_y1 != NULL){i2c_unregister_device(i2c_client_y1);}
 		printk("mk_arcade_joystick_rpi: Y1 limits : min: %d (0x%04X), max: %d (0x%04X) : y1params=%d,%d,%d,%d\n", y1_min, y1_min, y1_max, y1_max   ,y1_min,y1_max,y1_analog_abs_params.fuzz,y1_analog_abs_params.flat); //nns: add config format
 	}
 	
 	if(x2_enable){
-		if(!ads1015_enable){i2c_unregister_device(i2c_client_x2);}
+		if(!ads1015_enable && i2c_client_x2 != NULL){i2c_unregister_device(i2c_client_x2);}
 		printk("mk_arcade_joystick_rpi: X2 limits : min: %d (0x%04X), max: %d (0x%04X) : x2params=%d,%d,%d,%d\n", x2_min, x2_min, x2_max, x2_max   ,x2_min,x2_max,x2_analog_abs_params.fuzz,x2_analog_abs_params.flat); //nns: add config format
 	}
 	
 	if(y2_enable){
-		if(!ads1015_enable){i2c_unregister_device(i2c_client_y2);}
+		if(!ads1015_enable && i2c_client_y2 != NULL){i2c_unregister_device(i2c_client_y2);}
 		printk("mk_arcade_joystick_rpi: Y2 limits : min: %d (0x%04X), max: %d (0x%04X) : y2params=%d,%d,%d,%d\n", y2_min, y2_min, y2_max, y2_max   ,y2_min,y2_max,y2_analog_abs_params.fuzz,y2_analog_abs_params.flat); //nns: add config format
 	}
 	
-	//nns: force feedback, reset everything
+	//nns: force feedback
 	if(ff_enable){
 		if(ff_gpio_strong_pin!=-1){ //gpio strong
 			if(ff_effect_strong_reverse){GpioOuputSet(ff_gpio_strong_pin); //reverse logic, set high
@@ -1434,7 +1442,7 @@ static void __exit mk_exit(void){
 		}
 	}
 	
-	if(ff_pwm_enable){ //nns: add PCA9633 support
+	if(ff_pwm_enable && pca9633_client != NULL){ //nns: add PCA9633 support
 		if(ff_strong_pwm!=-1){ //pwm strong
 			if(ff_strong_pwm_reverse){i2c_smbus_write_byte_data(pca9633_client,(uint8_t)(ff_strong_pwm+2),(uint8_t)0xFF); //send pwm to i2c, reverse logic, set 0xFF
 			}else{i2c_smbus_write_byte_data(pca9633_client,(uint8_t)(ff_strong_pwm+2),(uint8_t)0x00);} //send pwm to i2c, set 0x00

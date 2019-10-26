@@ -702,7 +702,10 @@ static int mk_ff(struct input_dev *dev, void *data, struct ff_effect *effect){ /
 			ff_effect_strong_running=true; //running
 		}else{ //stop strong
 			if(debug_mode>0){printk("mk_arcade_joystick_rpi: DEBUG : Feedback effect : Strong : stop\n");}
-			if(pca9633_client!=NULL&&ff_strong_pwm!=-1){ff_strong_pwm_value=0; ff_strong_pwm_sent=false;} //pwm
+			if(pca9633_client!=NULL&&ff_strong_pwm!=-1){ //pwm
+				if(ff_strong_pwm_reverse){ff_strong_pwm_value=255;}else{ff_strong_pwm_value=0;}
+				ff_strong_pwm_sent=false;
+			}
 			if(ff_gpio_strong_pin!=-1){GpioOuputClr(ff_gpio_strong_pin);} //set gpio output low
 			ff_effect_strong_running=false; //reset
 		}
@@ -722,7 +725,10 @@ static int mk_ff(struct input_dev *dev, void *data, struct ff_effect *effect){ /
 				ff_effect_weak_running=true; //running
 			}else{ //stop weak
 				if(debug_mode>0){printk("mk_arcade_joystick_rpi: DEBUG : Feedback effect : Weak : stop\n");}
-				if(pca9633_client!=NULL&&ff_weak_pwm!=-1){ff_weak_pwm_value=0; ff_weak_pwm_sent=false;} //pwm
+				if(pca9633_client!=NULL&&ff_weak_pwm!=-1){ //pwm
+					if(ff_strong_pwm_reverse){ff_weak_pwm_value=255;}else{ff_weak_pwm_value=0;}
+					ff_weak_pwm_sent=false;
+				}
 				if(ff_gpio_weak_pin!=-1){GpioOuputClr(ff_gpio_weak_pin);} //set gpio output low
 				ff_effect_weak_running=false; //reset
 			}

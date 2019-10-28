@@ -39,6 +39,7 @@ if [ -e "/etc/modprobe.d/mk_arcade_joystick.conf" ] && grep -q -e "^options mk_a
 	fi
 
 else
+
 	sudo sh -c 'echo "" >> /etc/modprobe.d/mk_arcade_joystick.conf'
 	sudo sh -c 'echo "##### Options below this line are for v0.1.5.10+ of the driver.  Options above this may not function." >> /etc/modprobe.d/mk_arcade_joystick.conf'
 	sudo sh -c 'echo "#U,D,L,R BTN_START, BTN_SELECT, BTN_A, BTN_B, BTN_TR, BTN_Y, BTN_X, BTN_TL, BTN_MODE, BTN_TL2, BTN_TR2, BTN_C, BTN_Z, BTN_TOP, BTN_TOP2, BTN_BASE, BTN_BASE2" >> /etc/modprobe.d/mk_arcade_joystick.conf'
